@@ -94,7 +94,6 @@ class SNP {
 namespace meqtllib {
 /* Parameters */
 #define VARNUM 2
-#define COVARNUM 0
 
 struct linearFitRlt{
     int currentOmics1;
@@ -110,22 +109,22 @@ struct linearFitRlt{
 
 int omics1Num;
 int omics2Num;
-int covarNum = COVARNUM;
 int sampleSize;
 float missingRateThd, MAFThd;
 char *output_config;
 
 void calcBfileSize(char *bfileNameRoot, size_t &num_samples, size_t &num_snps);
+void getBfileSNPid(char *bfileNameRoot, int num_snps, vector<string> omicsName);
 void calcInputSize(char* omics1FileName, char* omics2FileName, int& omics1Num, int& omics2Num, int& sampleSize);
-void input2Ddouble(vector<vector<double> >& omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, int omicsNum, int sampleSize);
-int matrix_inv(double *a);
+void input2Ddouble(vector<vector<double> >& omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, 
+                   vector<string> omicsName, int omicsNum, int sampleSize);
+void preprocessing(vector<vector<double> >& omicsData, vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
+                   sampleSize, vector<vector<int> >& NASignMarkCurr);
 linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
                      vector<vector<double> >& omics1Data, vector<vector<double> >& omics2Data,
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
-                     vector<double>& omics1RowSum, vector<double>& omics1SqrRowSum, vector<double>& omics2RowSum, 
-                     vector<double>& omics1VectorWithNA, vector<double>& omics2VectorWithNA,
-                     vector<double>& b_hat_tmp, vector<double>& b_hat, vector<double>& Y_hat, vector<double>& e,
-                     vector<double>& c);
+                     vector<double>& omics1RowSum, vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
+                     double rCriticalValue);
 }  // namespace meqtllib
 
 #endif  //_SNPLIB_SRC_SNP_H_

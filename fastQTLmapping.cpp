@@ -68,6 +68,7 @@ void SNP::ConvertGeno(size_t num_snps, size_t idx,
              (g8[28 + i] << 56);
   }
 }
+
 void SNP::ConvertGeno(size_t num_snps, size_t idx,
                       std::array<uint64_t, 5> &g64) {
   uint64_t g8[20] = {0x55ull, 0x55ull, 0x55ull, 0x55ull, 0x55ull,
@@ -83,12 +84,14 @@ void SNP::ConvertGeno(size_t num_snps, size_t idx,
         g8[i] + (g8[5 + i] << 16) + (g8[10 + i] << 32) + (g8[15 + i] << 48);
   }
 }
+
 SNP::SNP(const uint8_t *geno, size_t num_samples)
     : geno_(geno),
       num_samples_(num_samples),
       num_full_bytes_(num_samples / 4),
       num_samples_left_(num_samples_ % 4),
       num_bytes_(num_full_bytes_ + (num_samples_left_ != 0 ? 1 : 0)) {}
+
 void SNP::TransposeGeno(size_t num_snps, size_t idx, uint64_t *geno64) {
   std::array<uint64_t, 4> g64;
   for (size_t i = 0; i < num_full_bytes_; ++i) {
@@ -112,6 +115,7 @@ void SNP::TransposeGeno(size_t num_snps, size_t idx, uint64_t *geno64) {
     }
   }
 }
+
 void SNP::TransposeGeno(size_t num_snps, uint64_t *geno64) {
   std::array<uint64_t, 5> g64;
   for (size_t i = 0; i < num_full_bytes_; ++i) {
@@ -165,34 +169,48 @@ void UnpackGeno(char *bfileName, vector<vector<double> >& geno_data, vector<vect
 
 
 namespace meqtllib {
-void calcBfileSize(char *bfileNameRoot, int &num_samples, int &num_snps)
-{
+void calcBfileSize(char *bfileNameRoot, int &num_samples, int &num_snps) {
     char bfileName[strlen(bfileNameRoot)+10];
-    std::string s;
-    std::ifstream inputFile;
+    string s;
+    ifstream inputFile;
 
     strcpy(bfileName, bfileNameRoot);
     strcat(bfileName, ".fam");
-    inputFile.open(bfileName, std::ios::in);
-    for (num_samples = 0; std::getline(inputFile, s); ++num_samples)
+    inputFile.open(bfileName, ios::in);
+    for (num_samples = 0; getline(inputFile, s); ++num_samples)
     ;
     inputFile.close();
 
     strcpy(bfileName, bfileNameRoot);
     strcat(bfileName, ".bim");
-    inputFile.open(bfileName, std::ios::in);
-    for (num_snps = 0; std::getline(inputFile, s); ++num_snps)
+    inputFile.open(bfileName, ios::in);
+    for (num_snps = 0; getline(inputFile, s); ++num_snps)
     ;
     inputFile.close();
 }
 
-void calcInputSize(char* omicsFileName, int& omicsNum, int& sampleSize)
-{
+void getBfileSNPid(char *bfileNameRoot, int num_snps, vector<string>& omicsName) {
+    char bfileName[strlen(bfileNameRoot)+10];
+    string s, one_item;
+    istringstream is;
+    ifstream inputFile;
+
+    strcpy(bfileName, bfileNameRoot);
+    strcat(bfileName, ".bim");
+    inputFile.open(bfileName, ios::in);
+    for (int i = 0; i < num_snps; i++) {
+        is.str(s);
+        is >> one_item; is >> one_item;
+        omicsNum[i] = one_item;
+        inputFile.close();
+    }
+}
+
+void calcInputSize(char* omicsFileName, int& omicsNum, int& sampleSize) {
     int i, rowsCount, columnsCount;
     ifstream inputFile;
-    string s;
+    string s, one_item;
     istringstream is;
-    string one_item;
 
     inputFile.open(omicsFileName);
     assert(inputFile.is_open());
@@ -213,23 +231,24 @@ void calcInputSize(char* omicsFileName, int& omicsNum, int& sampleSize)
 }
 
 //input 2 dimension omics data
-void input2Ddouble(vector<vector<double> >& omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, int omicsNum, int sampleSize)
-{
+void input2Ddouble(vector<vector<double> >& omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, 
+                   vector<string>& omicsName, int omicsNum, int sampleSize) {
     int i, j;
     ifstream inputFile;
-    string s;
+    string s, one_item;
     istringstream is;
-    string one_item;
 
     inputFile.open(fileName);
     for (i = 0; i < sampleSize; i++){
         getline(inputFile, s);
         is.str(s);
+        iss >> one_item;
+        omicsName[i] = one_item;
         for (j = 0; j < omicsNum; j++){
             is >> one_item;
             if (one_item == NASign){
-                omicsData[j][i] = 0.0;
-                NASignMark[j].push_back(i); // transpose input matrix
+                omicsData[j][i] = 0.0;  // transpose input matrix, and set NA value to 0.0
+                NASignMark[j].push_back(i);
             } else {
                 omicsData[j][i] = stod(one_item); // transpose input matrix
             }
@@ -239,179 +258,110 @@ void input2Ddouble(vector<vector<double> >& omicsData, char* fileName, vector<ve
     inputFile.close();
 }
 
-int matrix_inv(vector<double>& a)
-{
-    
-    int status;
-    MKL_INT ipiv[VARNUM];
-    MKL_INT info;
-    MKL_INT varNum = VARNUM, inc = 1;
-    
-    info = LAPACKE_dgetrf (LAPACK_ROW_MAJOR, varNum, varNum, a.data(), varNum, ipiv);
-    if (info != 0){
-        return info;
+// normalize each row in omics
+void preprocessing(vector<vector<double> >& omicsData, vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
+                   sampleSize, vector<vector<int> >& NASignMarkCurr) {
+    double omicsRowSumCurr, omicsRowSDCurr, omicsRowMeanCurr;
+    int sampleSizeCurr;
+    // preprocess the row sum for omics
+    for (i = 0; i < omicsNum; i++){
+        omicsRowSumCurr = 0;
+        for (j = 0; j < sampleSize; j++){
+            omicsRowSumCurr += omicsData[i][j];
+        }
+        omicsRowSum[i] = omicsRowSumCurr;
     }
-    info = LAPACKE_dgetri (LAPACK_ROW_MAJOR, varNum, a.data(), varNum, ipiv);
-    if (info != 0){
-        return info;
+    // preprocess the row SD for omics
+    for (i = 0; i < omicsNum; i++){
+        sampleSizeCurr = sampleSize - NASignMarkCurr[i].size(); // only non-missing locus are involved in SD calculation
+        omicsRowMeanCurr = omicsRowSum[i] / sampleSizeCurr;
+        omicsRowSDCurr = 0;
+        for (j = 0; j < sampleSize; j++){
+            if (find(NASignMarkCurr[i].begin(), NASignMarkCurr[i].end(), j) == NASignMarkCurr[i].end()) {
+                omicsRowSDCurr += pow(omicsData[i][j] - omicsRowMeanCurr, 2);
+            }
+        }
+        omicsRowSD[i] = sqrt(omicsRowSumCurr / (sampleSizeCurr - 1));
     }
-    return 0;
+    // normalize the row of omics
+    for (i = 0; i < omicsNum; i++){
+        sampleSizeCurr = sampleSize - NASignMarkCurr[i].size(); // only non-missing locus are involved in SD calculation
+        omicsRowMeanCurr = omicsRowSum[i] / sampleSizeCurr;
+        omicsRowSDCurr = omicsRowSD[i];
+        for (j = 0; j < sampleSize; j++){
+            if (find(NASignMarkCurr[i].begin(), NASignMarkCurr[i].end(), j) == NASignMarkCurr[i].end()) {
+                omicsData[i][j] = (omicsData[i][j] - omicsRowMeanCurr) / omicsRowSDCurr;
+            }
+        }
+    }
 }
 
 linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
                      vector<vector<double> >& omics1Data, vector<vector<double> >& omics2Data,
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
-                     vector<double>& omics1RowSum, vector<double>& omics1SqrRowSum, vector<double>& omics2RowSum, 
-                     vector<double>& omics1VectorWithNA, vector<double>& omics2VectorWithNA,
-                     vector<double>& b_hat_tmp, vector<double>& b_hat, vector<double>& Y_hat, vector<double>& e,
-                     vector<double>& c)
+                     vector<double>& omics1RowSum, vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
+                     double rCriticalValue)
 {
-    int i,j,k;
-    int n = sampleSize;
-    int m = covarNum;
-    vector<int> NASignMarkTmp;
+    int i;
+    int sampleSizeCurr, df;
+    vector<int> NASignMarkCurr;
     int status = 0;
     MKL_INT varNum = VARNUM, inc = 1;
-
-    gsl_set_error_handler_off(); // GSL error handler off
-
     linearFitRlt rlt;
-    rlt.currentOmics1=currentOmics1 + 1; rlt.currentOmics2=currentOmics2 + 1;
+    rlt.currentOmics1=currentOmics1; rlt.currentOmics2=currentOmics2; // locus index start from 0
 
-    // omit NA
-    for (auto l : NASignMark1[currentOmics1]){
-        NASignMarkTmp.push_back(l);
-    }
-    for (auto l : NASignMark2[currentOmics2]){
-        NASignMarkTmp.push_back(l);
-    }
-    sort(NASignMarkTmp.begin(), NASignMarkTmp.end());
-    NASignMarkTmp.erase(unique(NASignMarkTmp.begin(), NASignMarkTmp.end()), NASignMarkTmp.end());
-    // QC by missing-rate threshold
-    if (NASignMarkTmp.size() >= missingRateThd * n) {
-      rlt.status = 1;
-      return rlt;
-    }
-    n = n - NASignMarkTmp.size();
-    int df = n - (m + 1) - 1;
-    bool NAflag = NASignMarkTmp.size();
-
-// extract matrix X
-    double omics1RowSumWithNA, omics1SqrRowSumWithNA, omics2RowSumWithNA;
-    if (!NAflag){
-    } else {
-        omics1RowSumWithNA = omics1RowSum[currentOmics1]; omics1SqrRowSumWithNA = omics1SqrRowSum[currentOmics1];
-        omics2RowSumWithNA = omics2RowSum[currentOmics2];
-        k = 0; // subscript of NASignMark
-        for (i = 0; i < n+NASignMarkTmp.size(); i++){ // be careful, i contains NA cases
-            if (k < NASignMarkTmp.size()){
-                if (i == NASignMarkTmp[k]){
-                    omics1RowSumWithNA -= omics1Data[currentOmics1][i]; omics1SqrRowSumWithNA -= omics1Data[currentOmics1][i] * omics1Data[currentOmics1][i];
-                    omics2RowSumWithNA -= omics2Data[currentOmics2][i];
-                    k++;
-                    continue;
-                }
-            }
-            omics1VectorWithNA[i-k] = omics1Data[currentOmics1][i];
-            omics2VectorWithNA[i-k] = omics2Data[currentOmics2][i];
-        }
-        for (i = n; i < n+NASignMarkTmp.size(); i++){
-            omics1VectorWithNA[i] = 0;
-            omics2VectorWithNA[i] = 0;
-        }
-
-        // QC by MAF threshold
-        if (omics1RowSumWithNA * 0.5 / n < MAFThd) {
-          rlt.status = 4;
-          return rlt;
-        }
-    }
-
-// error handle constant valconstante
-    bool constFlagOmics1 = true, constFlagOmics2 = true;
-    if (!NAflag){
-        for (i = 1; i < n; i++){
-            if (omics1Data[currentOmics1][i] != omics1Data[currentOmics1][i - 1]){
-                constFlagOmics1 = false; break;
-            }
-        }
-        for (i = 1; i < n; i++){
-            if (omics2Data[currentOmics2][i] != omics2Data[currentOmics2][i - 1]){
-                constFlagOmics2 = false; break;
-            }
-        }
-    } else {
-        for (i = 1; i < n; i++){
-            if (omics1VectorWithNA[i] != omics1VectorWithNA[i-1]){
-                constFlagOmics1 = false; break;
-            }
-        }
-        for (i = 1; i < n; i++){
-            if (omics2VectorWithNA[i] != omics2VectorWithNA[i-1]){
-                constFlagOmics2 = false; break;
-            }
-        }
-    }
-    if (constFlagOmics1 || constFlagOmics2){
-        rlt.status = 2;
+    // calc pearson correlation
+    double corr = cblas_ddot ((MKL_INT) sampleSize, omics1Data[currentOmics1].data(), 1, omics2Data[currentOmics2].data(), 1);
+    if (corr < rCriticalValue) {
+        rlt.status = 4;
         return rlt;
     }
 
-// calc beta
-    if (!NAflag){
-        c[0] = n;
-        c[1] = omics1RowSum[currentOmics1]; c[2] = omics1RowSum[currentOmics1];
-        c[3] = omics1SqrRowSum[currentOmics1];
-        status = matrix_inv(c);
-// error handle matrix inversion error
-        if (status){
-            rlt.p = -9; rlt.status = 3;
-            return rlt;
-        }
-        b_hat_tmp[0] = omics2RowSum[currentOmics2];
-        b_hat_tmp[1] = cblas_ddot ((MKL_INT) sampleSize, omics1Data[currentOmics1].data(), 1, omics2Data[currentOmics2].data(), 1);
-        cblas_dgemv (CblasRowMajor, CblasNoTrans, varNum, varNum, 1, c.data(), varNum, b_hat_tmp.data(), inc, 0, b_hat.data(), inc);
-    } else {
-        c[0] = n;
-        c[1] = omics1RowSumWithNA; c[2] = omics1RowSumWithNA;
-        c[3] = omics1SqrRowSumWithNA;
-        status = matrix_inv(c); 
-    // error handle matrix inversion error
-        if (status){
-            rlt.p = -9; rlt.status = 3;
-            return rlt;
-        }
-        b_hat_tmp[0] = omics2RowSumWithNA;
-        b_hat_tmp[1] = cblas_ddot ((MKL_INT) sampleSize, omics1VectorWithNA.data(), 1, omics2VectorWithNA.data(), 1);
-        cblas_dgemv (CblasRowMajor, CblasNoTrans, varNum, varNum, 1, c.data(), varNum, b_hat_tmp.data(), inc, 0, b_hat.data(), inc);
+    gsl_set_error_handler_off(); // GSL error handler off
+
+    // omit NA
+    for (auto l : NASignMark1[currentOmics1]){
+        NASignMarkCurr.push_back(l);
     }
-
-// test beta
-    double t,p_b;
-    double MSE;
-    if (!NAflag){
-        e.assign(sampleSize, b_hat[0]);
-        cblas_daxpy ((MKL_INT) sampleSize, b_hat[1], omics1Data[currentOmics1].data(), inc, e.data(), inc);
-        cblas_daxpy ((MKL_INT) sampleSize, -1, omics2Data[currentOmics2].data(),inc, e.data(), inc);
-    } else {
-        e.assign(sampleSize, b_hat[0]);
-        cblas_daxpy ((MKL_INT) sampleSize, b_hat[1], omics1VectorWithNA.data(),inc, e.data(), inc);
-        cblas_daxpy ((MKL_INT) sampleSize, -1, omics2VectorWithNA.data(), inc, e.data(), inc);
+    for (auto l : NASignMark2[currentOmics2]){
+        NASignMarkCurr.push_back(l);
     }
-    MSE = cblas_ddot ((MKL_INT) sampleSize, e.data(), 1, e.data(), 1);
-    MSE /= df;
+    sort(NASignMarkCurr.begin(), NASignMarkCurr.end());
+    NASignMarkCurr.erase(unique(NASignMarkCurr.begin(), NASignMarkCurr.end()), NASignMarkCurr.end());
 
-    t = b_hat[1]/sqrt(MSE*c[3]);
-    p_b = gsl_cdf_tdist_Q(abs(t), df)*2;
+    // degree of freedom
+    sampleSizeCurr = sampleSize - NASignMarkCurr.size();
+    df = sampleSizeCurr - 2;
 
-    // handle error of out of range
-    if (p_b < 1e-308){
-        p_b = 1e-308;
+    // QC by missing-rate threshold
+    if (sampleSizeCurr <= (1 - missingRateThd) * sampleSize) {
+      rlt.status = 1;
+      return rlt;
     }
     
-    rlt.b = (float)b_hat[1]; rlt.t = (float)t;  rlt.p = (float)-log10(p_b);
-    rlt.se = (float)b_hat[1] / t; 
-    float t2 = pow(t,2); rlt.r2 = (float)t2 / (df + t2);
+    // calc MAF considering NA 
+    double omics1RowSumWithNA = omics1RowSum[currentOmics1];
+    for (i = 0; i < NASignMarkCurr.size(); i++){
+        omics1RowSumWithNA -= omics1Data[currentOmics1][i];
+    }
+    // QC by MAF threshold
+    if (omics1RowSumWithNA * 0.5 / sampleSizeCurr < MAFThd) {
+      rlt.status = 3;
+      return rlt;
+    }
+
+    // test correlation significant
+    double t, p_t;
+    t = sqrt(df) * corr / sqrt(1 - pow(corr, 2)); rlt.t = (float)t;
+    p_t = gsl_cdf_tdist_Q(abs(t), df) * 2; rlt.p = (float)-log10(p_t);
+    // handle error of out of range
+    if (p_t < 1e-308){
+        p_t = 1e-308;
+    }
+    // other paraments
+    rlt.b = (float)corr * omics2RowSD[currentOmics2] / omics1RowSD[currentOmics1];
+    rlt.se = (float)rlt.b / t; 
+    rlt.r2 = (float)pow(r, 2);
     rlt.df = df;
     rlt.status = 0;
 
@@ -441,24 +391,24 @@ int main(int argc, char **argv){
 
     // calculate bfile size
     calcBfileSize(omics1FileName, sampleSize, omics1Num);
-
     vector<vector<double> > omics1Data(omics1Num, vector<double> (sampleSize)); // SNPnum * samples
-    vector<vector<int> > NASignMark1(omics1Num, vector<int>(0)); // NA mark for second omics layer, SNPnum * NAs
-
+    vector<vector<int> > NASignMark1(omics1Num, vector<int>(0)); // NA mark for second omics, SNPnum * NAs
+    vector<string> omics1Name(omics1Num, string); // locus name for first omics
     // input bfile
+    getBfileSNPid(omics1FileName, omics1Num, omics1Name);
     char bfileName[strlen(omics1FileName)+10];
     strcpy(bfileName, omics1FileName); strcat(bfileName, ".bed");
     snplib::UnpackGeno(bfileName, omics1Data, NASignMark1, sampleSize, omics1Num);
 
     // calculate input file size
     calcInputSize(omics2FileName, omics2Num, sampleSize);
-
     vector<vector<double> > omics2Data(omics2Num, vector<double> (sampleSize)); // Traitnum * samples
-    vector<vector<int> > NASignMark2(omics2Num, vector<int>(0)); // NA mark for second omics layer, Traitnum * NAs
-
+    vector<vector<int> > NASignMark2(omics2Num, vector<int>(0)); // NA mark for second omics, Traitnum * NAs
+    vector<string> omics2Name(omics2Num, string); // locus name for second omics
     //input omics2ylation data
-    input2Ddouble(omics2Data, omics2FileName, NASignMark2, NASign, omics2Num, sampleSize);
+    input2Ddouble(omics2Data, omics2FileName, NASignMark2, NASign, omics2Name, omics2Num, sampleSize);
 
+    // create log file
     char outputLogFileName[strlen(outputFileName)+10];
     strcpy(outputLogFileName, outputFileName);
     strcat(outputLogFileName, ".log");
@@ -472,36 +422,18 @@ int main(int argc, char **argv){
     outputLogFile << "sample number : " << sampleSize << endl;
     outputLogFile << endl;
 
-    // preprocess the row sum for matrix c
-    vector<double> omics1RowSum(omics1Num);
-    vector<double> omics2RowSum(omics2Num);
-    vector<double> omics1SqrRowSum(omics1Num);
-    double omicsRowSumCurrent, omicsSqrRowSumCurrent;
-    for (i = 0; i < omics1Num; i++){
-        omicsRowSumCurrent = 0; omicsSqrRowSumCurrent = 0;
-        for (j = 0; j < sampleSize; j++){
-            omicsRowSumCurrent += omics1Data[i][j];
-            omicsSqrRowSumCurrent += omics1Data[i][j] * omics1Data[i][j];
-        }
-        omics1RowSum[i] = omicsRowSumCurrent;
-        omics1SqrRowSum[i] = omicsSqrRowSumCurrent;
-    }
-    for (i = 0; i < omics2Num; i++){
-        omicsRowSumCurrent = 0; 
-        for (j = 0; j < sampleSize; j++){
-            omicsRowSumCurrent += omics2Data[i][j];
-        }
-        omics2RowSum[i] = omicsRowSumCurrent;
-    }
+    // processing
+    // normalization
+    vector<double> omics1RowSum(omics1Num); vector<double> omics1RowSD(omics1Num);
+    vector<double> omics2RowSum(omics2Num); vector<double> omics2RowSD(omics2Num);
+    preprocessing(omics1Data, omics1RowSum, omics1RowSD, sampleSize, NASignMark1);
+    preprocessing(omics2Data, omics2RowSum, omics2RowSD, sampleSize, NASignMark2);
+    //  critical value of t test
+    auto tCriticalValue = gsl_cdf_tdist_Qinv(pFilter2Level/2, sampleSize - 2);
+    auto rCriticalValue = sqrt(pow(tCriticalValue, 2) / (sampleSize - 2 + pow(tCriticalValue, 2)));
 
-    // main process
-    double time_start_whole = omp_get_wtime(), time_end_whole;
-    double time_start, time_end;
-    int progressFlag = max((int)omics1Num / 10,1);
-    
-    // current result for each thread
+    // alloc space for current result on each thread
     linearFitRlt rltArr[omics2Num];
-
     // header of result file for P < 1e-10
     char output1LevelFileName[strlen(outputFileName)+10];
     strcpy(output1LevelFileName, outputFileName);
@@ -510,7 +442,6 @@ int main(int argc, char **argv){
     output1LevelFile.open(output1LevelFileName);
     output1LevelFile << "SNP.id\t" << "Trait.id\t" << "BETA\t" << "SE\t" << "R2\t" << "T\t" << "-lgP\t" << "DF\n";
     output1LevelFile.close();
-
     // header of result file for P < 1e-2
     char output2LevelFileName[strlen(outputFileName)+10];
     strcpy(output2LevelFileName, outputFileName);
@@ -520,17 +451,21 @@ int main(int argc, char **argv){
     output2LevelFile << "SNP.id\t" << "Trait.id\t" << "BETA\t" << "T\t" << "-lgP\t" << "DF\n";
     output2LevelFile.close();
 
+    // main process
+    double time_start_whole = omp_get_wtime(), time_end_whole;
+    double time_end;
+    int progressFlag = max((int)omics1Num / 10,1);
+
 #       pragma omp parallel for num_threads(thread_count) schedule(dynamic) \
-        private(i, j, time_start, time_end, rltArr) \
+        private(i, j, time_end, rltArr) \
         shared(omics1Data, omics2Data,  \
-        omics1Num, omics2Num, covarNum, sampleSize, \
+        omics1Num, omics2Num, sampleSize, \
         omics1RowSum, omics2RowSum, omics1SqrRowSum, \
         NASignMark1, NASignMark2, model, \
         progressFlag, \
         precision_config, output1LevelFileName, output2LevelFileName)
         for (i = 0; i < omics1Num; i++){
-            // time_start=omp_get_wtime();
-            if (i % progressFlag == 0){
+            if (i % progressFlag == 0 && i != 0){
                 time_end=omp_get_wtime();
                 cout << (float)i / omics1Num * 100 << "% finish, time use:" << time_end - time_start_whole << "s" << endl;
             }
@@ -539,15 +474,12 @@ int main(int argc, char **argv){
             int sigNum = 0;
 
             // alloc tmporary matrixs and vectors at once
-            vector<double> omics1VectorWithNA(sampleSize), omics2VectorWithNA(sampleSize), b_hat_tmp(2), b_hat(2), Y_hat(sampleSize), e(sampleSize), c(2 * 2);
             for (j = 0; j < omics2Num; j++){
                 linearFitRlt rlt;
                 rlt = linearFit(i, j, 
                       omics1Data, omics2Data, 
                       NASignMark1, NASignMark2, 
-                      omics1RowSum, omics1SqrRowSum, omics2RowSum, 
-                      omics1VectorWithNA, omics2VectorWithNA,
-                      b_hat_tmp, b_hat, Y_hat, e, c);
+                      omics1RowSum, omics1RowSD, omics2RowSD);
 
                 if (rlt.p >= pFilter2Level & rlt.status == 0){
                     rltArr[sigNum] = rlt;
@@ -555,9 +487,9 @@ int main(int argc, char **argv){
                 }
             }
 
-            // P< 1e-10, maker BETA SE R2 T P
-            // 1e-10 < P < 1e-2, maker BETA T P
-            // P > 1e-2, no output
+            // P< P1, maker BETA SE R2 T P
+            // P1 < P < P2, maker BETA T P
+            // P > P2, do not output
 #           pragma omp critical
             {
                 ofstream output1LevelFile;
@@ -570,8 +502,8 @@ int main(int argc, char **argv){
 
                 for (j = 0; j < sigNum; j++){
                     if (rltArr[j].p >= pFilter1Level){
-                        output1LevelFile << rltArr[j].currentOmics1 << "\t";
-                        output1LevelFile << rltArr[j].currentOmics2 << "\t";
+                        output1LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
+                        output1LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
                         output1LevelFile << rltArr[j].b << "\t";
                         output1LevelFile << rltArr[j].se << "\t";
                         output1LevelFile << rltArr[j].r2 << "\t";
@@ -581,8 +513,8 @@ int main(int argc, char **argv){
                         output1LevelFile << rltArr[j].df << "\n";
                         output1LevelFile << resetiosflags(ios::fixed);
                     } else {
-                        output2LevelFile << rltArr[j].currentOmics1 << "\t";
-                        output2LevelFile << rltArr[j].currentOmics2 << "\t";
+                        output2LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
+                        output2LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
                         output2LevelFile << rltArr[j].b << "\t";
                         output2LevelFile << setiosflags(ios::fixed);
                         output2LevelFile << rltArr[j].t << "\t";
@@ -594,16 +526,6 @@ int main(int argc, char **argv){
                 output1LevelFile.close();
                 output2LevelFile.close();
             }
-
-            // free temporary matrixs and vectors at once
-            vector<double>().swap(omics1VectorWithNA); vector<double>().swap(omics2VectorWithNA);
-            vector<double>().swap(b_hat); vector<double>().swap(b_hat_tmp);
-            vector<double>().swap(Y_hat); vector<double>().swap(e);
-            vector<double>().swap(c);
-
-            // time_end = omp_get_wtime();
-            // cout << i << "th SNP time use:" << time_end - time_start << "s" << endl;
-            // time_start = omp_get_wtime();
         }
 
     // whole calc time stamp
@@ -611,7 +533,6 @@ int main(int argc, char **argv){
     outputLogFile << "whole script time use:" << time_end_whole - time_start_whole << "s" << endl;
     outputLogFile << endl;
     outputLogFile.close();
-
 
     return 0;
 }
