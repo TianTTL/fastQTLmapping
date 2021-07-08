@@ -14,9 +14,9 @@
 #include <gsl/gsl_cdf.h>
 #include <gsl/gsl_errno.h>
 #include "mkl.h"
-#include <omp.h>
 #include <iomanip>
 #include "fastQTLmapping.h"
+#include <mpi.h>
 
 using namespace std;
 using namespace meqtllib;
@@ -391,7 +391,7 @@ int main(int argc, char **argv){
 
     // calculate bfile size
     calcBfileSize(omics1FileName, sampleSize, omics1Num);
-    vector<vector<double> > omics1Data(omics1Num, vector<double> (sampleSize)); // SNPnum * samples
+    vector<vector<float> > omics1Data(omics1Num, vector<float> (sampleSize)); // SNPnum * samples
     vector<vector<int> > NASignMark1(omics1Num, vector<int>(0)); // NA mark for second omics, SNPnum * NAs
     vector<string> omics1Name(omics1Num, string); // locus name for first omics
     // input bfile
@@ -402,7 +402,7 @@ int main(int argc, char **argv){
 
     // calculate input file size
     calcInputSize(omics2FileName, omics2Num, sampleSize);
-    vector<vector<double> > omics2Data(omics2Num, vector<double> (sampleSize)); // Traitnum * samples
+    vector<vector<float> > omics2Data(omics2Num, vector<float> (sampleSize)); // Traitnum * samples
     vector<vector<int> > NASignMark2(omics2Num, vector<int>(0)); // NA mark for second omics, Traitnum * NAs
     vector<string> omics2Name(omics2Num, string); // locus name for second omics
     //input omics2ylation data
