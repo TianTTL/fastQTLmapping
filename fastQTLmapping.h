@@ -103,7 +103,7 @@ struct linearFitRlt{
     float p;
     float se; // beta / t
     float r2; 
-    int df;
+    int nmiss;
     int status; // 0: good; 1: multicollinearity; 2: constant value; 3: matrix inversion error
 };
 
@@ -114,14 +114,14 @@ float missingRateThd, MAFThd;
 char *output_config;
 
 void calcBfileSize(char *bfileNameRoot, size_t &num_samples, size_t &num_snps);
-void getBfileSNPid(char *bfileNameRoot, int num_snps, vector<string> omicsName);
+void getBfileSNPid(char *bfileNameRoot, int num_snps, vector<string>& omicsName);
 void calcInputSize(char* omics1FileName, char* omics2FileName, int& omics1Num, int& omics2Num, int& sampleSize);
-void input2Ddouble(vector<vector<double> >& omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, 
-                   vector<string> omicsName, int omicsNum, int sampleSize);
-void preprocessing(vector<vector<double> >& omicsData, vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
-                   sampleSize, vector<vector<int> >& NASignMarkCurr);
+void input2Dfloat(vector<vector<float> >& omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, 
+                   vector<string>& omicsName, int omicsNum, int sampleSize);
+void preprocessing(vector<vector<float> >& omicsData, vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
+                   int omicsNum, int sampleSize, vector<vector<int> >& NASignMarkCurr);
 linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
-                     vector<vector<double> >& omics1Data, vector<vector<double> >& omics2Data,
+                     vector<vector<float> >& omics1Data, vector<vector<float> >& omics2Data,
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
                      vector<double>& omics1RowSum, vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
                      double rCriticalValue);
