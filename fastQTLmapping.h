@@ -100,7 +100,7 @@ struct linearFitRlt{
     int currentOmics2;
     float b;
     float t;
-    float p;
+    double p;
     float se; // beta / t
     float r2; 
     int nmiss;

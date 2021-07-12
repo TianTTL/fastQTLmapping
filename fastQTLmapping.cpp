@@ -12,7 +12,6 @@
 #include <initializer_list>
 #include <algorithm>
 #include <gsl/gsl_cdf.h>
-#include <gsl/gsl_errno.h>
 #include "mkl.h"
 #include "omp.h"
 #include <iomanip>
@@ -323,8 +322,6 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
         return rlt;
     }
 
-    gsl_set_error_handler_off(); // GSL error handler off
-
     // omit NA
     for (auto l : NASignMark1[currentOmics1]){
         NASignMarkCurr.push_back(l);
@@ -363,7 +360,7 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
     // test correlation significant
     double t, p_t;
     t = sqrt(df_t) * corr / sqrt(1 - pow(corr, 2)); rlt.t = (float)t;
-    p_t = gsl_cdf_tdist_Q(abs(t), df_t) * 2; rlt.p = (float)-log10(p_t);
+    p_t = gsl_cdf_tdist_Q(abs(t), df_t) * 2; rlt.p = p_t;
     // handle error of out of range
     if (p_t < 1e-308){
         p_t = 1e-308;
@@ -395,8 +392,8 @@ int main(int argc, char **argv){
     NASign = argv[4];
     missingRateThd = atof(argv[5]);
     MAFThd = atof(argv[6]);
-    pFilter1Level = -log10(atof(argv[7]));
-    pFilter2Level = -log10(atof(argv[8]));
+    pFilter1Level = atof(argv[7]);
+    pFilter2Level = atof(argv[8]);
     thread_count = stol(argv[9]);
 
     // calculate bfile size
@@ -450,7 +447,7 @@ int main(int argc, char **argv){
     strcat(output1LevelFileName, ".strict");
     ofstream output1LevelFile;
     output1LevelFile.open(output1LevelFileName);
-    output1LevelFile << "SNP.id\t" << "Trait.id\t" << "BETA\t" << "SE\t" << "R2\t" << "T\t" << "-lgP\t" << "NMISS\n";
+    output1LevelFile << "SNP.id\t" << "Trait.id\t" << "BETA\t" << "SE\t" << "R2\t" << "T\t" << "P\t" << "NMISS\n";
     output1LevelFile.close();
     // header of result file for P < 1e-2
     char output2LevelFileName[strlen(outputFileName)+10];
@@ -458,7 +455,7 @@ int main(int argc, char **argv){
     strcat(output2LevelFileName, ".loose");
     ofstream output2LevelFile;
     output2LevelFile.open(output2LevelFileName);
-    output2LevelFile << "SNP.id\t" << "Trait.id\t" << "BETA\t" << "T\t" << "-lgP\t" << "NMISS\n";
+    output2LevelFile << "SNP.id\t" << "Trait.id\t" << "BETA\t" << "T\t" << "P\t" << "NMISS\n";
     output2LevelFile.close();
 
     // main process
@@ -493,7 +490,7 @@ int main(int argc, char **argv){
                       omics1RowSum, omics1RowSD, omics2RowSD,
                       rCriticalValue);
 
-                if (rlt.p >= pFilter2Level & rlt.status == 0){
+                if (rlt.p <= pFilter2Level & rlt.status == 0){
                     rltArr[sigNum] = rlt;
                     sigNum++;
                 }
@@ -519,20 +516,16 @@ int main(int argc, char **argv){
                         output1LevelFile << rltArr[j].b << "\t";
                         output1LevelFile << rltArr[j].se << "\t";
                         output1LevelFile << rltArr[j].r2 << "\t";
-                        output1LevelFile << setiosflags(ios::fixed);
                         output1LevelFile << rltArr[j].t << "\t";
                         output1LevelFile << rltArr[j].p << "\t";
                         output1LevelFile << rltArr[j].nmiss << "\n";
-                        output1LevelFile << resetiosflags(ios::fixed);
                     } else {
                         output2LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
                         output2LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
                         output2LevelFile << rltArr[j].b << "\t";
-                        output2LevelFile << setiosflags(ios::fixed);
                         output2LevelFile << rltArr[j].t << "\t";
                         output2LevelFile << rltArr[j].p << "\t";
                         output2LevelFile << rltArr[j].nmiss << "\n";
-                        output2LevelFile << resetiosflags(ios::fixed);
                     }
                 }
                 output1LevelFile.close();
