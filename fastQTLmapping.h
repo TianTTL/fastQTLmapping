@@ -123,7 +123,7 @@ void preprocessing(vector<vector<float> >& omicsData, vector<double>& omicsRowSu
 linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
                      vector<vector<float> >& omics1Data, vector<vector<float> >& omics2Data,
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
-                     vector<double>& omics1RowSum, vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
+                     vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
                      double rCriticalValue);
 }  // namespace meqtllib
 

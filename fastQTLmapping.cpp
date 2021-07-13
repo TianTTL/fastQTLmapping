@@ -304,14 +304,13 @@ void preprocessing(vector<vector<float> >& omicsData, vector<double>& omicsRowSu
 linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
                      vector<vector<float> >& omics1Data, vector<vector<float> >& omics2Data,
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
-                     vector<double>& omics1RowSum, vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
+                     vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
                      double rCriticalValue) {
     int i;
     double corr;
     int sampleSizeCurr, df_r, df_t;
     vector<int> NASignMarkCurr;
     int status = 0;
-    MKL_INT varNum = VARNUM, inc = 1;
     linearFitRlt rlt;
     rlt.currentOmics1=currentOmics1; rlt.currentOmics2=currentOmics2; // locus index start from 0
 
@@ -342,17 +341,6 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
       rlt.status = 1;
       return rlt;
     }
-    
-    // calc MAF considering NA 
-    double omics1RowSumWithNA = omics1RowSum[currentOmics1];
-    for (i = 0; i < NASignMarkCurr.size(); i++){
-        omics1RowSumWithNA -= omics1Data[currentOmics1][i];
-    }
-    // QC by MAF threshold
-    if (omics1RowSumWithNA * 0.5 / sampleSizeCurr < MAFThd) {
-      rlt.status = 3;
-      return rlt;
-    }
 
     // calculate pearson correlation
     corr /= df_r;
@@ -380,7 +368,6 @@ int main(int argc, char **argv){
     char *omics1FileName, *omics2FileName, *outputFileName;
     int i, j, thread_count;
     string NASign;
-    string model;
     ifstream inputFile;
     string one_item;
     long precision_config;
@@ -439,8 +426,6 @@ int main(int argc, char **argv){
     auto tCriticalValue = gsl_cdf_tdist_Qinv(pFilter2Level/2, sampleSize - 2);
     auto rCriticalValue = sqrt(pow(tCriticalValue, 2) / (sampleSize - 2 + pow(tCriticalValue, 2))) * (sampleSize - 1);
 
-    // alloc space for current result on each thread
-    linearFitRlt rltArr[omics2Num];
     // header of result file for P < 1e-10
     char output1LevelFileName[strlen(outputFileName)+10];
     strcpy(output1LevelFileName, outputFileName);
@@ -460,22 +445,33 @@ int main(int argc, char **argv){
 
     // main process
     double time_start_whole = omp_get_wtime(), time_end_whole;
-    double time_end;
-    int progressFlag = max((int)omics1Num / 10,1);
+#   pragma omp parallel \
+    num_threads(thread_count) \
+    shared(omics1Data, omics2Data,  \
+           omics1Num, omics2Num, sampleSize, \
+           omics1RowSum, omics2RowSum, \
+           omics1RowSD, omics2RowSD, \
+           NASignMark1, NASignMark2, \
+           precision_config, output1LevelFileName, output2LevelFileName, \
+           outputLogFile)
+    {
+        int i, j;
+        double time_end;
+        int progressFlag = max((int)omics1Num / 10,1);
 
-#       pragma omp parallel for num_threads(thread_count) schedule(dynamic) \
-        private(i, j, time_end, rltArr) \
-        shared(omics1Data, omics2Data,  \
-        omics1Num, omics2Num, sampleSize, \
-        omics1RowSum, omics2RowSum, \
-        NASignMark1, NASignMark2, model, \
-        progressFlag, \
-        precision_config, output1LevelFileName, output2LevelFileName, \
-        outputLogFile)
+        // alloc space for current result on each thread
+        linearFitRlt rltArr[omics2Num];
+
+#       pragma omp for schedule(dynamic)
         for (i = 0; i < omics1Num; i++){
             if (i % progressFlag == 0 && i != 0){
                 time_end=omp_get_wtime();
                 outputLogFile << (float)i / omics1Num * 100 << "% finish, time use:" << time_end - time_start_whole << "s" << endl;
+            }
+
+            // QC by MAF threshold
+            if (omics1RowSum[i] * 0.5 / sampleSize < MAFThd) {
+                continue;
             }
 
             // number of items in current result
@@ -486,8 +482,8 @@ int main(int argc, char **argv){
                 linearFitRlt rlt;
                 rlt = linearFit(i, j, 
                       omics1Data, omics2Data, 
-                      NASignMark1, NASignMark2, 
-                      omics1RowSum, omics1RowSD, omics2RowSD,
+                      NASignMark1, NASignMark2,
+                      omics1RowSD, omics2RowSD,
                       rCriticalValue);
 
                 if (rlt.p <= pFilter2Level & rlt.status == 0){
@@ -510,7 +506,7 @@ int main(int argc, char **argv){
                 output2LevelFile << setprecision(2);
 
                 for (j = 0; j < sigNum; j++){
-                    if (rltArr[j].p >= pFilter1Level){
+                    if (rltArr[j].p <= pFilter1Level){
                         output1LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
                         output1LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
                         output1LevelFile << rltArr[j].b << "\t";
@@ -532,6 +528,7 @@ int main(int argc, char **argv){
                 output2LevelFile.close();
             }
         }
+    }
 
     // whole calc time stamp
     time_end_whole = omp_get_wtime();
