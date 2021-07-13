@@ -139,7 +139,7 @@ void SNP::TransposeGeno(size_t num_snps, uint64_t *geno64) {
   }
 }
 
-void UnpackGeno(char *bfileName, vector<vector<float> >& geno_data, vector<vector<int> >& NA_data, size_t num_samples, size_t num_snps) {
+void UnpackGeno(char *bfileName, float* geno_data, vector<vector<int> >& NA_data, size_t num_samples, size_t num_snps) {
   std::ifstream inputFile;
   float *snp_mask_d = new float[num_samples];
 
@@ -153,7 +153,7 @@ void UnpackGeno(char *bfileName, vector<vector<float> >& geno_data, vector<vecto
   const std::array<float, 4> mask_table{0.0, 1.0, 0.0, 0.0};
   SNP snp(geno.data(), num_samples);
   for (size_t i = 0; i < num_snps; ++i) {
-    float *snp_geno_d = geno_data[i].data();    
+    float *snp_geno_d = &geno_data[i * sampleSize];    
     snp.UnpackGeno(geno_table, mask_table, snp_geno_d, snp_mask_d);
     for (size_t j = 0; j < num_samples; ++j) {
         if (snp_mask_d[j] > 0) {
@@ -229,7 +229,7 @@ void calcInputSize(char* omicsFileName, int& omicsNum, int& sampleSize) {
 }
 
 //input 2 dimension omics data
-void input2Dfloat(vector<vector<float> >& omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, 
+void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, 
                    vector<string>& omicsName, int omicsNum, int sampleSize) {
     int i, j;
     ifstream inputFile;
@@ -250,10 +250,10 @@ void input2Dfloat(vector<vector<float> >& omicsData, char* fileName, vector<vect
         for (j = 0; j < omicsNum; j++) {
             is >> one_item;
             if (one_item == NASign){
-                omicsData[j][i] = 0.0;  // transpose input matrix, and set NA value to 0.0
+                omicsData[j * sampleSize + i] = 0.0;  // transpose input matrix, and set NA value to 0.0
                 NASignMark[j].push_back(i);
             } else {
-                omicsData[j][i] = stod(one_item); // transpose input matrix
+                omicsData[j * sampleSize + i] = stod(one_item); // transpose input matrix
             }
         }
         s.clear(); is.str(""); is.clear();
@@ -262,7 +262,7 @@ void input2Dfloat(vector<vector<float> >& omicsData, char* fileName, vector<vect
 }
 
 // normalize each row in omics
-void preprocessing(vector<vector<float> >& omicsData, vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
+void preprocessing(float* omicsData, vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
                    int omicsNum, int sampleSize, vector<vector<int> >& NASignMarkCurr) {
     double omicsRowSumCurr, omicsRowSDCurr, omicsRowMeanCurr;
     int sampleSizeCurr;
@@ -272,7 +272,7 @@ void preprocessing(vector<vector<float> >& omicsData, vector<double>& omicsRowSu
     for (i = 0; i < omicsNum; i++){
         omicsRowSumCurr = 0;
         for (j = 0; j < sampleSize; j++){
-            omicsRowSumCurr += omicsData[i][j];
+            omicsRowSumCurr += omicsData[i * sampleSize + j];
         }
         omicsRowSum[i] = omicsRowSumCurr;
     }
@@ -283,7 +283,7 @@ void preprocessing(vector<vector<float> >& omicsData, vector<double>& omicsRowSu
         omicsRowSDCurr = 0;
         for (j = 0; j < sampleSize; j++){
             if (find(NASignMarkCurr[i].begin(), NASignMarkCurr[i].end(), j) == NASignMarkCurr[i].end()) {
-                omicsRowSDCurr += pow(omicsData[i][j] - omicsRowMeanCurr, 2);
+                omicsRowSDCurr += pow(omicsData[i * sampleSize + j] - omicsRowMeanCurr, 2);
             }
         }
         omicsRowSD[i] = sqrt(omicsRowSDCurr / (sampleSizeCurr - 1));
@@ -295,14 +295,14 @@ void preprocessing(vector<vector<float> >& omicsData, vector<double>& omicsRowSu
         omicsRowSDCurr = omicsRowSD[i];
         for (j = 0; j < sampleSize; j++){
             if (find(NASignMarkCurr[i].begin(), NASignMarkCurr[i].end(), j) == NASignMarkCurr[i].end()) {
-                omicsData[i][j] = (omicsData[i][j] - omicsRowMeanCurr) / omicsRowSDCurr;
+                omicsData[i * sampleSize + j] = (omicsData[i * sampleSize + j] - omicsRowMeanCurr) / omicsRowSDCurr;
             }
         }
     }
 }
 
 linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
-                     vector<vector<float> >& omics1Data, vector<vector<float> >& omics2Data,
+                     float* omics1Data, float*  omics2Data,
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
                      vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
                      double rCriticalValue) {
@@ -315,7 +315,7 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
     rlt.currentOmics1=currentOmics1; rlt.currentOmics2=currentOmics2; // locus index start from 0
 
     // preliminary filtering by r critical value
-    corr = (double)cblas_sdot ((MKL_INT) sampleSize, omics1Data[currentOmics1].data(), 1, omics2Data[currentOmics2].data(), 1);
+    corr = (double)cblas_sdot ((MKL_INT) sampleSize, &omics1Data[currentOmics1 * sampleSize], 1, &omics2Data[currentOmics2 * sampleSize], 1);
     if (corr < rCriticalValue) {
         rlt.status = 4;
         return rlt;
@@ -385,7 +385,8 @@ int main(int argc, char **argv){
 
     // calculate bfile size
     calcBfileSize(omics1FileName, sampleSize, omics1Num);
-    vector<vector<float> > omics1Data(omics1Num, vector<float> (sampleSize)); // SNPnum * samples
+    float* omics1Data = (float*) mkl_malloc(sizeof(float) * omics1Num * sampleSize, 64);
+    // vector<vector<float> > omics1Data(omics1Num, vector<float> (sampleSize)); // SNPnum * samples
     vector<vector<int> > NASignMark1(omics1Num, vector<int>(0)); // NA mark for second omics, SNPnum * NAs
     vector<string> omics1Name(omics1Num); // locus name for first omics
     // input bfile
@@ -396,7 +397,8 @@ int main(int argc, char **argv){
 
     // calculate input file size
     calcInputSize(omics2FileName, omics2Num, sampleSize);
-    vector<vector<float> > omics2Data(omics2Num, vector<float> (sampleSize)); // Traitnum * samples
+    float* omics2Data = (float*) mkl_malloc(sizeof(float) * omics2Num * sampleSize, 64);
+    // vector<vector<float> > omics2Data(omics2Num, vector<float> (sampleSize)); // Traitnum * samples
     vector<vector<int> > NASignMark2(omics2Num, vector<int>(0)); // NA mark for second omics, Traitnum * NAs
     vector<string> omics2Name(omics2Num); // locus name for second omics
     //input omics2ylation data
@@ -535,6 +537,9 @@ int main(int argc, char **argv){
     outputLogFile << "whole script time use:" << time_end_whole - time_start_whole << "s" << endl;
     outputLogFile << endl;
     outputLogFile.close();
+
+    mkl_free(omics1Data);
+    mkl_free(omics2Data);
 
     return 0;
 }

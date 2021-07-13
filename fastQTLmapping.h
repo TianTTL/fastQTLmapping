@@ -116,12 +116,12 @@ char *output_config;
 void calcBfileSize(char *bfileNameRoot, size_t &num_samples, size_t &num_snps);
 void getBfileSNPid(char *bfileNameRoot, int num_snps, vector<string>& omicsName);
 void calcInputSize(char* omics1FileName, char* omics2FileName, int& omics1Num, int& omics2Num, int& sampleSize);
-void input2Dfloat(vector<vector<float> >& omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, 
+void input2Dfloat(float*  omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, 
                    vector<string>& omicsName, int omicsNum, int sampleSize);
-void preprocessing(vector<vector<float> >& omicsData, vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
+void preprocessing(float*  omicsData, vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
                    int omicsNum, int sampleSize, vector<vector<int> >& NASignMarkCurr);
 linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
-                     vector<vector<float> >& omics1Data, vector<vector<float> >& omics2Data,
+                     float* omics1Data, float*  omics2Data,
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
                      vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
                      double rCriticalValue);
