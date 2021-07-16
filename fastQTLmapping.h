@@ -112,6 +112,7 @@ int omics2Num;
 int sampleSize;
 float missingRateThd, MAFThd;
 char *output_config;
+const int L3CacheSize = 31457280;
 
 void calcBfileSize(char *bfileNameRoot, size_t &num_samples, size_t &num_snps);
 void getBfileSNPid(char *bfileNameRoot, int num_snps, vector<string>& omicsName);

@@ -447,87 +447,96 @@ int main(int argc, char **argv){
 
     // main process
     double time_start_whole = omp_get_wtime(), time_end_whole;
-#   pragma omp parallel \
-    num_threads(thread_count) \
-    shared(omics1Data, omics2Data,  \
-           omics1Num, omics2Num, sampleSize, \
-           omics1RowSum, omics2RowSum, \
-           omics1RowSD, omics2RowSD, \
-           NASignMark1, NASignMark2, \
-           precision_config, output1LevelFileName, output2LevelFileName, \
-           outputLogFile)
-    {
-        int i, j;
-        double time_end;
-        int progressFlag = max((int)omics1Num / 10,1);
+    // split chunk schedule
+    int omics2Stride = (int)L3CacheSize * 0.9 / 4 / sampleSize;
+    int omics2Head;
+    for (omics2Head = 0; omics2Head < omics2Num; omics2Head += omics2Stride) {
 
-        // alloc space for current result on each thread
-        linearFitRlt rltArr[omics2Num];
+#       pragma omp parallel \
+        num_threads(thread_count) \
+        shared(omics1Data, omics2Data,  \
+               omics1Num, omics2Num, sampleSize, \
+               omics1RowSum, omics2RowSum, \
+               omics1RowSD, omics2RowSD, \
+               NASignMark1, NASignMark2, \
+               precision_config, output1LevelFileName, output2LevelFileName, \
+               outputLogFile)
+        {
+            int i, j;
+            double time_end;
+            int progressFlag = max(omics1Num / 10,1);
 
-#       pragma omp for schedule(dynamic)
-        for (i = 0; i < omics1Num; i++){
-            if (i % progressFlag == 0 && i != 0){
-                time_end=omp_get_wtime();
-                outputLogFile << (float)i / omics1Num * 100 << "% finish, time use:" << time_end - time_start_whole << "s" << endl;
-            }
+            // alloc space for current result on each thread
+            linearFitRlt rltArr[omics2Num];
 
-            // QC by MAF threshold
-            if (omics1RowSum[i] * 0.5 / sampleSize < MAFThd) {
-                continue;
-            }
-
-            // number of items in current result
-            int sigNum = 0;
-
-            // alloc tmporary matrixs and vectors at once
-            for (j = 0; j < omics2Num; j++){
-                linearFitRlt rlt;
-                rlt = linearFit(i, j, 
-                      omics1Data, omics2Data, 
-                      NASignMark1, NASignMark2,
-                      omics1RowSD, omics2RowSD,
-                      rCriticalValue);
-
-                if (rlt.p <= pFilter2Level & rlt.status == 0){
-                    rltArr[sigNum] = rlt;
-                    sigNum++;
+#           pragma omp for schedule(dynamic)
+            for (i = 0; i < omics1Num; i++){
+                if (i % progressFlag == 0 && i != 0){
+                    time_end=omp_get_wtime();
+                    outputLogFile << 
+                        ((double)omics2Head / omics2Num + (double)i * min(omics2Stride, omics2Num - omics2Head) / omics1Num / omics2Num) * 100 << 
+                        "% finish, time use:" << time_end - time_start_whole << "s" << 
+                        endl;
                 }
-            }
 
-            // P< P1, maker BETA SE R2 T P
-            // P1 < P < P2, maker BETA T P
-            // P > P2, do not output
-#           pragma omp critical
-            {
-                ofstream output1LevelFile;
-                output1LevelFile.open(output1LevelFileName, ios::app);
-                output1LevelFile << setprecision(2);
-                
-                ofstream output2LevelFile;
-                output2LevelFile.open(output2LevelFileName, ios::app);
-                output2LevelFile << setprecision(2);
+                // QC by MAF threshold
+                if (omics1RowSum[i] * 0.5 / sampleSize < MAFThd) {
+                    continue;
+                }
 
-                for (j = 0; j < sigNum; j++){
-                    if (rltArr[j].p <= pFilter1Level){
-                        output1LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
-                        output1LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
-                        output1LevelFile << rltArr[j].b << "\t";
-                        output1LevelFile << rltArr[j].se << "\t";
-                        output1LevelFile << rltArr[j].r2 << "\t";
-                        output1LevelFile << rltArr[j].t << "\t";
-                        output1LevelFile << rltArr[j].p << "\t";
-                        output1LevelFile << rltArr[j].nmiss << "\n";
-                    } else {
-                        output2LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
-                        output2LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
-                        output2LevelFile << rltArr[j].b << "\t";
-                        output2LevelFile << rltArr[j].t << "\t";
-                        output2LevelFile << rltArr[j].p << "\t";
-                        output2LevelFile << rltArr[j].nmiss << "\n";
+                // number of items in current result
+                int sigNum = 0;
+
+                // alloc tmporary matrixs and vectors at once
+                for (j = omics2Head; j < min(omics2Head + omics2Stride, omics2Num); j++){
+                    linearFitRlt rlt;
+                    rlt = linearFit(i, j, 
+                          omics1Data, omics2Data, 
+                          NASignMark1, NASignMark2,
+                          omics1RowSD, omics2RowSD,
+                          rCriticalValue);
+
+                    if (rlt.p <= pFilter2Level & rlt.status == 0){
+                        rltArr[sigNum] = rlt;
+                        sigNum++;
                     }
                 }
-                output1LevelFile.close();
-                output2LevelFile.close();
+
+                // P< P1, maker BETA SE R2 T P
+                // P1 < P < P2, maker BETA T P
+                // P > P2, do not output
+    #           pragma omp critical
+                {
+                    ofstream output1LevelFile;
+                    output1LevelFile.open(output1LevelFileName, ios::app);
+                    output1LevelFile << setprecision(2);
+                    
+                    ofstream output2LevelFile;
+                    output2LevelFile.open(output2LevelFileName, ios::app);
+                    output2LevelFile << setprecision(2);
+
+                    for (j = 0; j < sigNum; j++){
+                        if (rltArr[j].p <= pFilter1Level){
+                            output1LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
+                            output1LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
+                            output1LevelFile << rltArr[j].b << "\t";
+                            output1LevelFile << rltArr[j].se << "\t";
+                            output1LevelFile << rltArr[j].r2 << "\t";
+                            output1LevelFile << rltArr[j].t << "\t";
+                            output1LevelFile << rltArr[j].p << "\t";
+                            output1LevelFile << rltArr[j].nmiss << "\n";
+                        } else {
+                            output2LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
+                            output2LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
+                            output2LevelFile << rltArr[j].b << "\t";
+                            output2LevelFile << rltArr[j].t << "\t";
+                            output2LevelFile << rltArr[j].p << "\t";
+                            output2LevelFile << rltArr[j].nmiss << "\n";
+                        }
+                    }
+                    output1LevelFile.close();
+                    output2LevelFile.close();
+                }
             }
         }
     }
