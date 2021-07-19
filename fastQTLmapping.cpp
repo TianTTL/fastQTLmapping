@@ -262,7 +262,8 @@ void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASign
 }
 
 // normalize each row in omics
-void preprocessing(float* omicsData, vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
+void preprocessing(float* omicsData, float* omicsDataNorm, 
+                   vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
                    int omicsNum, int sampleSize, vector<vector<int> >& NASignMarkCurr) {
     double omicsRowSumCurr, omicsRowSDCurr, omicsRowMeanCurr;
     int sampleSizeCurr;
@@ -295,37 +296,47 @@ void preprocessing(float* omicsData, vector<double>& omicsRowSum, vector<double>
         omicsRowSDCurr = omicsRowSD[i];
         for (j = 0; j < sampleSize; j++){
             if (find(NASignMarkCurr[i].begin(), NASignMarkCurr[i].end(), j) == NASignMarkCurr[i].end()) {
-                omicsData[i * sampleSize + j] = (omicsData[i * sampleSize + j] - omicsRowMeanCurr) / omicsRowSDCurr;
+                omicsDataNorm[i * sampleSize + j] = (omicsData[i * sampleSize + j] - omicsRowMeanCurr) / omicsRowSDCurr;
             }
         }
     }
 }
 
 linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
-                     float* omics1Data, float*  omics2Data,
+                     float* omics1Data, float* omics2Data,
+                     float* omics1DataNorm, float* omics2DataNorm, 
+                     float* omics1DataCurr, float* omics2DataCurr, 
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
+                     vector<double>& omics1RowSum, vector<double>& omics2RowSum, 
                      vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
                      double rCriticalValue) {
     int i;
     double corr;
-    int sampleSizeCurr, df_r, df_t;
+    int sampleSizeCurr, df_t;
     vector<int> NASignMarkCurr;
+    double A, B, C, D, E;
+    double SXX, SYY, SXY;
+    double beta0, beta1, MSE;
+    double t, p_t;
     int status = 0;
     linearFitRlt rlt;
     rlt.currentOmics1=currentOmics1; rlt.currentOmics2=currentOmics2; // locus index start from 0
 
     // preliminary filtering by r critical value
-    corr = (double)cblas_sdot ((MKL_INT) sampleSize, &omics1Data[currentOmics1 * sampleSize], 1, &omics2Data[currentOmics2 * sampleSize], 1);
-    if (corr < rCriticalValue) {
+    corr = (double)cblas_sdot ((MKL_INT) sampleSize, omics1DataNorm, 1, omics2DataNorm, 1);
+    if (abs(corr) < rCriticalValue) {
         rlt.status = 4;
         return rlt;
     }
+    
+    // cout << endl << "id1: " << currentOmics1 << " id2: " << currentOmics2 << endl; // test
+    // cout << "corr: " << corr / (sampleSize - 1) << endl; // test
 
     // omit NA
-    for (auto l : NASignMark1[currentOmics1]){
+    for (auto l : NASignMark1[currentOmics1]) {
         NASignMarkCurr.push_back(l);
     }
-    for (auto l : NASignMark2[currentOmics2]){
+    for (auto l : NASignMark2[currentOmics2]) {
         NASignMarkCurr.push_back(l);
     }
     sort(NASignMarkCurr.begin(), NASignMarkCurr.end());
@@ -333,7 +344,6 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
 
     // degree of freedom
     sampleSizeCurr = sampleSize - NASignMarkCurr.size();
-    df_r = sampleSizeCurr - 1;
     df_t = sampleSizeCurr - 2;
 
     // QC by missing-rate threshold
@@ -342,19 +352,65 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
       return rlt;
     }
 
+    // build current omics data with NA
+    for (i = 0; i < sampleSize; i++) {
+        omics1DataCurr[i] = omics1Data[i];
+        omics2DataCurr[i] = omics2Data[i];
+    }
+    A = omics1RowSum[currentOmics1];
+    C = omics2RowSum[currentOmics2];
+    for (auto l : NASignMarkCurr) {
+        omics1DataCurr[l] = 0;
+        omics2DataCurr[l] = 0;
+        A -= omics1Data[l];
+        C -= omics2Data[l];
+    }
+
+    // calculate regression coefficients
+    // A = sigma(X)
+    // B = sigma(XX)
+    // C = sigma(Y)
+    // D = sigma(YY)
+    // E = sigma(XY)
+    B = (double)cblas_sdot ((MKL_INT) sampleSize, omics1DataCurr, 1, omics1DataCurr, 1);
+    D = (double)cblas_sdot ((MKL_INT) sampleSize, omics2DataCurr, 1, omics2DataCurr, 1);
+    E = (double)cblas_sdot ((MKL_INT) sampleSize, omics1DataCurr, 1, omics2DataCurr, 1);
+    SXX = B - A * A / sampleSizeCurr;
+    SYY = D - C * C / sampleSizeCurr;
+    SXY = E - A * C / sampleSizeCurr;
+    beta1 = SXY / SXX;
+    MSE = (SYY - beta1 * SXY)/ df_t;
+    t = beta1 * sqrt(SXX / MSE);
+
+    // cout << "A: " << A << endl; // test
+    // cout << "B: " << B << endl; // test
+    // cout << "C: " << C << endl; // test
+    // cout << "D: " << D << endl; // test
+    // cout << "E: " << E << endl; // test
+    // cout << "beta1: " << beta1 << endl; // test
+    // cout << "MSE: " << MSE << endl; // test
+    // cout << "SXX: " << SXX << endl; // test
+    // cout << "SYY: " << SYY << endl; // test
+    // cout << "SXY: " << SXY << endl; // test
+    // cout << "t: " << t << endl; // test
+
     // calculate pearson correlation
-    corr /= df_r;
+    corr = sqrt(pow(t, 2) / (df_t + pow(t, 2)));
+
+    // cout << "corr: " << corr << endl; // test
 
     // test correlation significant
-    double t, p_t;
-    t = sqrt(df_t) * corr / sqrt(1 - pow(corr, 2)); rlt.t = (float)t;
+    rlt.t = (float)t;
     p_t = gsl_cdf_tdist_Q(abs(t), df_t) * 2; rlt.p = p_t;
+
+    // cout << "p: " << p_t << endl; // test
+
     // handle error of out of range
     if (p_t < 1e-308){
         p_t = 1e-308;
     }
     // other paraments
-    rlt.b = (float)corr * omics2RowSD[currentOmics2] / omics1RowSD[currentOmics1];
+    rlt.b = (float)beta1;
     rlt.se = (float)rlt.b / t; 
     rlt.r2 = (float)pow(corr, 2);
     rlt.nmiss = sampleSizeCurr;
@@ -422,11 +478,15 @@ int main(int argc, char **argv){
     // normalization
     vector<double> omics1RowSum(omics1Num); vector<double> omics1RowSD(omics1Num);
     vector<double> omics2RowSum(omics2Num); vector<double> omics2RowSD(omics2Num);
-    preprocessing(omics1Data, omics1RowSum, omics1RowSD, omics1Num, sampleSize, NASignMark1);
-    preprocessing(omics2Data, omics2RowSum, omics2RowSD, omics2Num, sampleSize, NASignMark2);
+    float* omics1DataNorm = (float*) mkl_malloc(sizeof(float) * omics1Num * sampleSize, 64);
+    float* omics2DataNorm = (float*) mkl_malloc(sizeof(float) * omics2Num * sampleSize, 64);
+    preprocessing(omics1Data, omics1DataNorm, omics1RowSum, omics1RowSD, omics1Num, sampleSize, NASignMark1);
+    preprocessing(omics2Data, omics2DataNorm, omics2RowSum, omics2RowSD, omics2Num, sampleSize, NASignMark2);
     //  critical value of t test
     auto tCriticalValue = gsl_cdf_tdist_Qinv(pFilter2Level/2, sampleSize - 2);
-    auto rCriticalValue = sqrt(pow(tCriticalValue, 2) / (sampleSize - 2 + pow(tCriticalValue, 2))) * (sampleSize - 1);
+    auto rCriticalValue = sqrt(pow(tCriticalValue, 2) / (sampleSize - 2 + pow(tCriticalValue, 2))) * (sampleSize - 1); // times sampleSize
+
+    outputLogFile << "pearson correlation critical value: " << rCriticalValue / (sampleSize - 1) << endl << endl;
 
     // header of result file for P < 1e-10
     char output1LevelFileName[strlen(outputFileName)+10];
@@ -454,7 +514,7 @@ int main(int argc, char **argv){
 
 #       pragma omp parallel \
         num_threads(thread_count) \
-        shared(omics1Data, omics2Data,  \
+        shared(omics1Data, omics2Data, \
                omics1Num, omics2Num, sampleSize, \
                omics1RowSum, omics2RowSum, \
                omics1RowSD, omics2RowSD, \
@@ -466,6 +526,10 @@ int main(int argc, char **argv){
             double time_end;
             int progressFlag = max(omics1Num / 10,1);
 
+            // alloc space for omics data contains NA
+            float* omics1DataCurr = (float*) mkl_malloc(sizeof(float) * sampleSize, 64);
+            float* omics2DataCurr = (float*) mkl_malloc(sizeof(float) * sampleSize, 64);
+
             // alloc space for current result on each thread
             linearFitRlt rltArr[omics2Num];
 
@@ -475,7 +539,7 @@ int main(int argc, char **argv){
                     time_end=omp_get_wtime();
                     outputLogFile << 
                         ((double)omics2Head / omics2Num + (double)i * min(omics2Stride, omics2Num - omics2Head) / omics1Num / omics2Num) * 100 << 
-                        "% finish, time use:" << time_end - time_start_whole << "s" << 
+                        "% finish, time use: " << time_end - time_start_whole << " s" << 
                         endl;
                 }
 
@@ -491,8 +555,11 @@ int main(int argc, char **argv){
                 for (j = omics2Head; j < min(omics2Head + omics2Stride, omics2Num); j++){
                     linearFitRlt rlt;
                     rlt = linearFit(i, j, 
-                          omics1Data, omics2Data, 
+                          &omics1Data[i * sampleSize], &omics2Data[j * sampleSize], 
+                          &omics1DataNorm[i * sampleSize], &omics2DataNorm[j * sampleSize], 
+                          omics1DataCurr, omics2DataCurr, 
                           NASignMark1, NASignMark2,
+                          omics1RowSum, omics2RowSum,
                           omics1RowSD, omics2RowSD,
                           rCriticalValue);
 
@@ -501,11 +568,10 @@ int main(int argc, char **argv){
                         sigNum++;
                     }
                 }
-
                 // P< P1, maker BETA SE R2 T P
                 // P1 < P < P2, maker BETA T P
                 // P > P2, do not output
-    #           pragma omp critical
+#               pragma omp critical
                 {
                     ofstream output1LevelFile;
                     output1LevelFile.open(output1LevelFileName, ios::app);
@@ -538,17 +604,18 @@ int main(int argc, char **argv){
                     output2LevelFile.close();
                 }
             }
+            mkl_free(omics1DataCurr); mkl_free(omics2DataCurr);
         }
     }
 
     // whole calc time stamp
     time_end_whole = omp_get_wtime();
-    outputLogFile << "whole script time use:" << time_end_whole - time_start_whole << "s" << endl;
+    outputLogFile << "whole script time use: " << time_end_whole - time_start_whole << " s" << endl;
     outputLogFile << endl;
     outputLogFile.close();
 
-    mkl_free(omics1Data);
-    mkl_free(omics2Data);
+    mkl_free(omics1Data); mkl_free(omics2Data);
+    mkl_free(omics1DataNorm); mkl_free(omics2DataNorm);
 
     return 0;
 }
