@@ -329,9 +329,6 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
         return rlt;
     }
     
-    // cout << endl << "id1: " << currentOmics1 << " id2: " << currentOmics2 << endl; // test
-    // cout << "corr: " << corr / (sampleSize - 1) << endl; // test
-
     // omit NA
     for (auto l : NASignMark1[currentOmics1]) {
         NASignMarkCurr.push_back(l);
@@ -382,28 +379,12 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
     MSE = (SYY - beta1 * SXY)/ df_t;
     t = beta1 * sqrt(SXX / MSE);
 
-    // cout << "A: " << A << endl; // test
-    // cout << "B: " << B << endl; // test
-    // cout << "C: " << C << endl; // test
-    // cout << "D: " << D << endl; // test
-    // cout << "E: " << E << endl; // test
-    // cout << "beta1: " << beta1 << endl; // test
-    // cout << "MSE: " << MSE << endl; // test
-    // cout << "SXX: " << SXX << endl; // test
-    // cout << "SYY: " << SYY << endl; // test
-    // cout << "SXY: " << SXY << endl; // test
-    // cout << "t: " << t << endl; // test
-
     // calculate pearson correlation
     corr = sqrt(pow(t, 2) / (df_t + pow(t, 2)));
-
-    // cout << "corr: " << corr << endl; // test
 
     // test correlation significant
     rlt.t = (float)t;
     p_t = gsl_cdf_tdist_Q(abs(t), df_t) * 2; rlt.p = p_t;
-
-    // cout << "p: " << p_t << endl; // test
 
     // handle error of out of range
     if (p_t < 1e-308){
