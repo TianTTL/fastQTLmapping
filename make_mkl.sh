@@ -1,5 +1,7 @@
-workDir=/thinker/storage/org/liufanGroup/gaoxj/work/xQTLMapping/2_xQTLMapping
-GSLROOT=/thinker/storage/org/liufanGroup/public_lib/gsl-2.6
+workDir=/data/gaoxj/work/xQTLmapping/2_xQTLMapping
+GSLROOT=/data/gaoxj/lib/gsl-2.7
+
+source /data/gaoxj/lib/intel/setvars.sh --force
 
 export C_INCLUDE_PATH=$C_INCLUDE_PATH:${GSLROOT}/include
 export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:${GSLROOT}/include

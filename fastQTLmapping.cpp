@@ -262,49 +262,44 @@ void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASign
 }
 
 // normalize each row in omics
-void preprocessing(float* omicsData, float* omicsDataNorm, 
+void preprocessing(int omicsId, float* omicsData, float* omicsDataNorm, 
                    vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
-                   int omicsNum, int sampleSize, vector<vector<int> >& NASignMarkCurr) {
+                   int sampleSize, vector<vector<int> >& NASignMarkCurr) {
     double omicsRowSumCurr, omicsRowSDCurr, omicsRowMeanCurr;
     int sampleSizeCurr;
-    int i, j;
+    int j;
 
     // preprocess the row sum for omics
-    for (i = 0; i < omicsNum; i++){
-        omicsRowSumCurr = 0;
-        for (j = 0; j < sampleSize; j++){
-            omicsRowSumCurr += omicsData[i * sampleSize + j];
-        }
-        omicsRowSum[i] = omicsRowSumCurr;
+    omicsRowSumCurr = 0;
+    for (j = 0; j < sampleSize; j++){
+        omicsRowSumCurr += omicsData[omicsId * sampleSize + j];
     }
+    omicsRowSum[omicsId] = omicsRowSumCurr;
+
     // preprocess the row SD for omics
-    for (i = 0; i < omicsNum; i++){
-        sampleSizeCurr = sampleSize - NASignMarkCurr[i].size(); // only non-missing locus are involved in SD calculation
-        omicsRowMeanCurr = omicsRowSum[i] / sampleSizeCurr;
-        omicsRowSDCurr = 0;
-        for (j = 0; j < sampleSize; j++){
-            if (find(NASignMarkCurr[i].begin(), NASignMarkCurr[i].end(), j) == NASignMarkCurr[i].end()) {
-                omicsRowSDCurr += pow(omicsData[i * sampleSize + j] - omicsRowMeanCurr, 2);
-            }
+    sampleSizeCurr = sampleSize - NASignMarkCurr[omicsId].size(); // only non-missing locus are involved in SD calculation
+    omicsRowMeanCurr = omicsRowSum[omicsId] / sampleSizeCurr;
+    omicsRowSDCurr = 0;
+    for (j = 0; j < sampleSize; j++){
+        if (find(NASignMarkCurr[omicsId].begin(), NASignMarkCurr[omicsId].end(), j) == NASignMarkCurr[omicsId].end()) {
+            omicsRowSDCurr += pow(omicsData[omicsId * sampleSize + j] - omicsRowMeanCurr, 2);
         }
-        omicsRowSD[i] = sqrt(omicsRowSDCurr / (sampleSizeCurr - 1));
     }
+    omicsRowSD[omicsId] = sqrt(omicsRowSDCurr / (sampleSizeCurr - 1));
+
     // normalize the row of omics
-    for (i = 0; i < omicsNum; i++){
-        sampleSizeCurr = sampleSize - NASignMarkCurr[i].size(); // only non-missing locus are involved in SD calculation
-        omicsRowMeanCurr = omicsRowSum[i] / sampleSizeCurr;
-        omicsRowSDCurr = omicsRowSD[i];
-        for (j = 0; j < sampleSize; j++){
-            if (find(NASignMarkCurr[i].begin(), NASignMarkCurr[i].end(), j) == NASignMarkCurr[i].end()) {
-                omicsDataNorm[i * sampleSize + j] = (omicsData[i * sampleSize + j] - omicsRowMeanCurr) / omicsRowSDCurr;
-            }
+    sampleSizeCurr = sampleSize - NASignMarkCurr[omicsId].size(); // only non-missing locus are involved in SD calculation
+    omicsRowMeanCurr = omicsRowSum[omicsId] / sampleSizeCurr;
+    omicsRowSDCurr = omicsRowSD[omicsId];
+    for (j = 0; j < sampleSize; j++){
+        if (find(NASignMarkCurr[omicsId].begin(), NASignMarkCurr[omicsId].end(), j) == NASignMarkCurr[omicsId].end()) {
+            omicsDataNorm[omicsId * sampleSize + j] = (omicsData[omicsId * sampleSize + j] - omicsRowMeanCurr) / omicsRowSDCurr;
         }
     }
 }
 
 linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
                      float* omics1Data, float* omics2Data,
-                     float* omics1DataNorm, float* omics2DataNorm, 
                      float* omics1DataCurr, float* omics2DataCurr, 
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
                      vector<double>& omics1RowSum, vector<double>& omics2RowSum, 
@@ -322,13 +317,6 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
     linearFitRlt rlt;
     rlt.currentOmics1=currentOmics1; rlt.currentOmics2=currentOmics2; // locus index start from 0
 
-    // preliminary filtering by r critical value
-    corr = (double)cblas_sdot ((MKL_INT) sampleSize, omics1DataNorm, 1, omics2DataNorm, 1);
-    if (abs(corr) < rCriticalValue) {
-        rlt.status = 4;
-        return rlt;
-    }
-    
     // omit NA
     for (auto l : NASignMark1[currentOmics1]) {
         NASignMarkCurr.push_back(l);
@@ -361,6 +349,12 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
         omics2DataCurr[l] = 0;
         A -= omics1Data[l];
         C -= omics2Data[l];
+    }
+
+    // QC by MAF threshold
+    if (A * 0.5 < MAFThd * sampleSizeCurr) {
+      rlt.status = 3;
+      return rlt;
     }
 
     // calculate regression coefficients
@@ -401,9 +395,9 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
 }
 }  // namespace meqtllib
 
-int main(int argc, char **argv){
+int main(int argc, char **argv) {
     char *omics1FileName, *omics2FileName, *outputFileName;
-    int i, j, thread_count;
+    int thread_count;
     string NASign;
     ifstream inputFile;
     string one_item;
@@ -420,10 +414,12 @@ int main(int argc, char **argv){
     pFilter2Level = atof(argv[8]);
     thread_count = stol(argv[9]);
 
+    // global starting time stamp 
+    double time_start_whole = omp_get_wtime(), time_end_whole;
+
     // calculate bfile size
     calcBfileSize(omics1FileName, sampleSize, omics1Num);
     float* omics1Data = (float*) mkl_malloc(sizeof(float) * omics1Num * sampleSize, 64);
-    // vector<vector<float> > omics1Data(omics1Num, vector<float> (sampleSize)); // SNPnum * samples
     vector<vector<int> > NASignMark1(omics1Num, vector<int>(0)); // NA mark for second omics, SNPnum * NAs
     vector<string> omics1Name(omics1Num); // locus name for first omics
     // input bfile
@@ -435,7 +431,6 @@ int main(int argc, char **argv){
     // calculate input file size
     calcInputSize(omics2FileName, omics2Num, sampleSize);
     float* omics2Data = (float*) mkl_malloc(sizeof(float) * omics2Num * sampleSize, 64);
-    // vector<vector<float> > omics2Data(omics2Num, vector<float> (sampleSize)); // Traitnum * samples
     vector<vector<int> > NASignMark2(omics2Num, vector<int>(0)); // NA mark for second omics, Traitnum * NAs
     vector<string> omics2Name(omics2Num); // locus name for second omics
     //input omics2ylation data
@@ -445,7 +440,6 @@ int main(int argc, char **argv){
     char outputLogFileName[strlen(outputFileName)+10];
     strcpy(outputLogFileName, outputFileName);
     strcat(outputLogFileName, ".log");
-
     ofstream outputLogFile;
     outputLogFile.open(outputLogFileName);
     outputLogFile << omics1FileName << endl;
@@ -455,18 +449,36 @@ int main(int argc, char **argv){
     outputLogFile << "sample number : " << sampleSize << endl;
     outputLogFile << endl;
 
-    // processing
+    // time stamp for preprocessing
+    time_end_whole = omp_get_wtime();
+    outputLogFile << "input has finished, time used: " << time_end_whole - time_start_whole << " s" << endl << endl;
+
+    // preprocessing
     // normalization
     vector<double> omics1RowSum(omics1Num); vector<double> omics1RowSD(omics1Num);
     vector<double> omics2RowSum(omics2Num); vector<double> omics2RowSD(omics2Num);
     float* omics1DataNorm = (float*) mkl_malloc(sizeof(float) * omics1Num * sampleSize, 64);
     float* omics2DataNorm = (float*) mkl_malloc(sizeof(float) * omics2Num * sampleSize, 64);
-    preprocessing(omics1Data, omics1DataNorm, omics1RowSum, omics1RowSD, omics1Num, sampleSize, NASignMark1);
-    preprocessing(omics2Data, omics2DataNorm, omics2RowSum, omics2RowSD, omics2Num, sampleSize, NASignMark2);
+#   pragma omp parallel for \
+    num_threads(thread_count) \
+    shared(omics1Data, omics1DataNorm, \
+           sampleSize, \
+           omics1RowSum, omics1RowSD, NASignMark1)
+    for (int i = 0; i < omics1Num; i++) {
+        preprocessing(i, omics1Data, omics1DataNorm, omics1RowSum, omics1RowSD, sampleSize, NASignMark1);
+    }
+#   pragma omp parallel for \
+    num_threads(thread_count) \
+    shared(omics2Data, omics2DataNorm, \
+           sampleSize, \
+           omics2RowSum, omics2RowSD, NASignMark2)
+    for (int i = 0; i < omics2Num; i++) {
+        preprocessing(i, omics2Data, omics2DataNorm, omics2RowSum, omics2RowSD, sampleSize, NASignMark2);
+    }
+
     //  critical value of t test
     auto tCriticalValue = gsl_cdf_tdist_Qinv(pFilter2Level/2, sampleSize - 2);
     auto rCriticalValue = sqrt(pow(tCriticalValue, 2) / (sampleSize - 2 + pow(tCriticalValue, 2))) * (sampleSize - 1); // times sampleSize
-
     outputLogFile << "pearson correlation critical value: " << rCriticalValue / (sampleSize - 1) << endl << endl;
 
     // header of result file for P < 1e-10
@@ -486,112 +498,116 @@ int main(int argc, char **argv){
     output2LevelFile << "SNP.id\t" << "Trait.id\t" << "BETA\t" << "T\t" << "P\t" << "NMISS\n";
     output2LevelFile.close();
 
-    // main process
-    double time_start_whole = omp_get_wtime(), time_end_whole;
     // split chunk schedule
-    int omics2Stride = (int)L3CacheSize * 0.9 / 4 / sampleSize;
-    int omics2Head;
-    for (omics2Head = 0; omics2Head < omics2Num; omics2Head += omics2Stride) {
+    int omics1Stride = min(omics1Num, 10000);
+    int omics2Stride = min(omics2Num, 10000);
+    int omics1ChunkNum = (int)(omics1Num + omics1Stride - 1) / omics1Stride;
+    int omics2ChunkNum = (int)(omics2Num + omics2Stride - 1) / omics2Stride;
+    int blockNum = omics1ChunkNum * omics2ChunkNum;
 
-#       pragma omp parallel \
-        num_threads(thread_count) \
-        shared(omics1Data, omics2Data, \
-               omics1Num, omics2Num, sampleSize, \
-               omics1RowSum, omics2RowSum, \
-               omics1RowSD, omics2RowSD, \
-               NASignMark1, NASignMark2, \
-               precision_config, output1LevelFileName, output2LevelFileName, \
-               outputLogFile)
-        {
-            int i, j;
-            double time_end;
-            int progressFlag = max(omics1Num / 10,1);
+    // time stamp for preprocessing
+    time_end_whole = omp_get_wtime();
+    outputLogFile << "preprocessing has finished, time used: " << time_end_whole - time_start_whole << " s" << endl << endl;
 
-            // alloc space for omics data contains NA
-            float* omics1DataCurr = (float*) mkl_malloc(sizeof(float) * sampleSize, 64);
-            float* omics2DataCurr = (float*) mkl_malloc(sizeof(float) * sampleSize, 64);
+#   pragma omp parallel \
+    num_threads(min(thread_count, blockNum)) \
+    shared(omics1Data, omics2Data, \
+           omics1DataNorm, omics2DataNorm, \
+           omics1Num, omics2Num, sampleSize, \
+           omics1RowSum, omics2RowSum, \
+           omics1RowSD, omics2RowSD, \
+           NASignMark1, NASignMark2, \
+           omics1Name, omics2Name, \
+           precision_config, output1LevelFileName, output2LevelFileName, \
+           outputLogFile)
+    {
+        // mark of omics id in current block
+        int omics1Head, omics2Head;
 
-            // alloc space for current result on each thread
-            linearFitRlt rltArr[omics2Num];
+        // alloc space for omics data contains NA
+        float* omics1DataCurr = (float*) mkl_malloc(sizeof(float) * sampleSize, 64);
+        float* omics2DataCurr = (float*) mkl_malloc(sizeof(float) * sampleSize, 64);
 
-#           pragma omp for schedule(dynamic)
-            for (i = 0; i < omics1Num; i++){
-                if (i % progressFlag == 0 && i != 0){
-                    time_end=omp_get_wtime();
-                    outputLogFile << 
-                        ((double)omics2Head / omics2Num + (double)i * min(omics2Stride, omics2Num - omics2Head) / omics1Num / omics2Num) * 100 << 
-                        "% finish, time use: " << time_end - time_start_whole << " s" << 
-                        endl;
-                }
+        // alloc space for current result on each thread
+        linearFitRlt* rltArr = new linearFitRlt[omics1Stride * omics2Stride];
+        float* corr = (float*) mkl_malloc(sizeof(float) * omics1Stride * omics2Stride, 64);
 
-                // QC by MAF threshold
-                if (omics1RowSum[i] * 0.5 / sampleSize < MAFThd) {
-                    continue;
-                }
+#       pragma omp for schedule(dynamic)
+        for (int i = 0; i < blockNum; i++) {
+            omics1Head = (int) i % omics1ChunkNum * omics1Stride;
+            omics2Head = (int) i / omics1ChunkNum * omics2Stride;
 
-                // number of items in current result
-                int sigNum = 0;
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
+                        omics1Stride, omics2Stride, sampleSize, 
+                        1, &omics1DataNorm[omics1Head * sampleSize], sampleSize, &omics2DataNorm[omics2Head * sampleSize], sampleSize, 
+                        0, corr, omics2Stride);
 
-                // alloc tmporary matrixs and vectors at once
-                for (j = omics2Head; j < min(omics2Head + omics2Stride, omics2Num); j++){
-                    linearFitRlt rlt;
-                    rlt = linearFit(i, j, 
-                          &omics1Data[i * sampleSize], &omics2Data[j * sampleSize], 
-                          &omics1DataNorm[i * sampleSize], &omics2DataNorm[j * sampleSize], 
-                          omics1DataCurr, omics2DataCurr, 
-                          NASignMark1, NASignMark2,
-                          omics1RowSum, omics2RowSum,
-                          omics1RowSD, omics2RowSD,
-                          rCriticalValue);
-
-                    if (rlt.p <= pFilter2Level & rlt.status == 0){
-                        rltArr[sigNum] = rlt;
-                        sigNum++;
-                    }
-                }
-                // P< P1, maker BETA SE R2 T P
-                // P1 < P < P2, maker BETA T P
-                // P > P2, do not output
-#               pragma omp critical
-                {
-                    ofstream output1LevelFile;
-                    output1LevelFile.open(output1LevelFileName, ios::app);
-                    output1LevelFile << setprecision(2);
-                    
-                    ofstream output2LevelFile;
-                    output2LevelFile.open(output2LevelFileName, ios::app);
-                    output2LevelFile << setprecision(2);
-
-                    for (j = 0; j < sigNum; j++){
-                        if (rltArr[j].p <= pFilter1Level){
-                            output1LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
-                            output1LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
-                            output1LevelFile << rltArr[j].b << "\t";
-                            output1LevelFile << rltArr[j].se << "\t";
-                            output1LevelFile << rltArr[j].r2 << "\t";
-                            output1LevelFile << rltArr[j].t << "\t";
-                            output1LevelFile << rltArr[j].p << "\t";
-                            output1LevelFile << rltArr[j].nmiss << "\n";
-                        } else {
-                            output2LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
-                            output2LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
-                            output2LevelFile << rltArr[j].b << "\t";
-                            output2LevelFile << rltArr[j].t << "\t";
-                            output2LevelFile << rltArr[j].p << "\t";
-                            output2LevelFile << rltArr[j].nmiss << "\n";
+            // number of items in current result
+            int sigNum = 0;
+            int corr_id = 0;
+            for (int j = omics1Head; j < min(omics1Head + omics1Stride, omics1Num); j++) {
+                for (int k = omics2Head; k < min(omics2Head + omics2Stride, omics2Num); k++) {
+                    if (abs(corr[corr_id++]) > rCriticalValue) {
+                        linearFitRlt rlt = linearFit(j, k, 
+                              &omics1Data[j * sampleSize], &omics2Data[k * sampleSize], 
+                              omics1DataCurr, omics2DataCurr, 
+                              NASignMark1, NASignMark2,
+                              omics1RowSum, omics2RowSum,
+                              omics1RowSD, omics2RowSD,
+                              rCriticalValue);
+                        if (rlt.p <= pFilter2Level & rlt.status == 0){
+                            rltArr[sigNum] = rlt;
+                            sigNum++;
                         }
                     }
-                    output1LevelFile.close();
-                    output2LevelFile.close();
                 }
             }
-            mkl_free(omics1DataCurr); mkl_free(omics2DataCurr);
+          
+            // P< P1, maker BETA SE R2 T P
+            // P1 < P < P2, maker BETA T P
+            // P > P2, do not output
+#           pragma omp critical
+            {
+                ofstream output1LevelFile;
+                output1LevelFile.open(output1LevelFileName, ios::app);
+                output1LevelFile << setprecision(2);
+                
+                ofstream output2LevelFile;
+                output2LevelFile.open(output2LevelFileName, ios::app);
+                output2LevelFile << setprecision(2);
+
+                for (int j = 0; j < sigNum; j++){
+                    if (rltArr[j].p <= pFilter1Level){
+                        output1LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
+                        output1LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
+                        output1LevelFile << rltArr[j].b << "\t";
+                        output1LevelFile << rltArr[j].se << "\t";
+                        output1LevelFile << rltArr[j].r2 << "\t";
+                        output1LevelFile << rltArr[j].t << "\t";
+                        output1LevelFile << rltArr[j].p << "\t";
+                        output1LevelFile << rltArr[j].nmiss << "\n";
+                    } else {
+                        output2LevelFile << omics1Name[rltArr[j].currentOmics1] << "\t";
+                        output2LevelFile << omics2Name[rltArr[j].currentOmics2] << "\t";
+                        output2LevelFile << rltArr[j].b << "\t";
+                        output2LevelFile << rltArr[j].t << "\t";
+                        output2LevelFile << rltArr[j].p << "\t";
+                        output2LevelFile << rltArr[j].nmiss << "\n";
+                    }
+                }
+                output1LevelFile.close();
+                output2LevelFile.close();
+            }
+
+            double time_end = omp_get_wtime();
+            outputLogFile << i << " / " << blockNum << " block has finished, time used: " << time_end - time_start_whole << " s" << endl;
         }
+        mkl_free(omics1DataCurr); mkl_free(omics2DataCurr);
     }
 
     // whole calc time stamp
     time_end_whole = omp_get_wtime();
-    outputLogFile << "whole script time use: " << time_end_whole - time_start_whole << " s" << endl;
+    outputLogFile << "whole script time used: " << time_end_whole - time_start_whole << " s" << endl;
     outputLogFile << endl;
     outputLogFile.close();
 
