@@ -112,24 +112,24 @@ int omics2Num;
 int sampleSize;
 float missingRateThd, MAFThd;
 char *output_config;
-const int L3CacheSize = 31457280;
+const int blockSize = 10000;
 
 void calcBfileSize(char *bfileNameRoot, size_t &num_samples, size_t &num_snps);
 void getBfileSNPid(char *bfileNameRoot, int num_snps, vector<string>& omicsName);
 void calcInputSize(char* omics1FileName, char* omics2FileName, int& omics1Num, int& omics2Num, int& sampleSize);
-void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASignMark, string NASign, 
-                   vector<string>& omicsName, int omicsNum, int sampleSize);
+void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASignMark, char* NASign, 
+                   vector<string>& omicsName, int omicsNum, int sampleSize, 
+                   string* dataArea, 
+                   int thread_count);
 void preprocessing(float* omicsData, float* omicsDataNorm, 
                    vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
                    int omicsNum, int sampleSize, vector<vector<int> >& NASignMarkCurr);
 linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
-                     float* omics1Data, float* omics2Data,
-                     float* omics1DataNorm, float* omics2DataNorm, 
+                     int sampleSize, float MAFThd, float missingRateThd,
+                     float* omics1Data, float* omics2Data, 
                      float* omics1DataCurr, float* omics2DataCurr, 
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
-                     vector<double>& omics1RowSum, vector<double>& omics2RowSum, 
-                     vector<double>& omics1RowSD, vector<double>& omics2RowSD, 
-                     double rCriticalValue);
+                     vector<double>& omics1RowSum, vector<double>& omics2RowSum);
 }  // namespace meqtllib
 
 #endif  //_SNPLIB_SRC_SNP_H_
