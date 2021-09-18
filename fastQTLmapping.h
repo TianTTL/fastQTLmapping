@@ -107,16 +107,15 @@ struct linearFitRlt{
     int status; // 0: good; 1: multicollinearity; 2: constant value; 3: matrix inversion error
 };
 
-int omics1Num;
-int omics2Num;
+long omics1Num;
+long omics2Num;
 int sampleSize;
 float missingRateThd, MAFThd;
-char *output_config;
-const int blockSize = 10000;
+const long blockSize = 10000;
 
-void calcBfileSize(char *bfileNameRoot, size_t &num_samples, size_t &num_snps);
+void calcBfileSize(char *bfileNameRoot, int &num_samples, long &num_snps);
 void getBfileSNPid(char *bfileNameRoot, int num_snps, vector<string>& omicsName);
-void calcInputSize(char* omics1FileName, char* omics2FileName, int& omics1Num, int& omics2Num, int& sampleSize);
+void calcInputSize(char* omicsFileName, long& omicsNum, int& sampleSize);
 void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASignMark, char* NASign, 
                    vector<string>& omicsName, int omicsNum, int sampleSize, 
                    string* dataArea, 
@@ -130,6 +129,7 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
                      float* omics1DataCurr, float* omics2DataCurr, 
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
                      vector<double>& omics1RowSum, vector<double>& omics2RowSum);
+void rCriticalValueCalc(double P, int sampleSize, double &rCriticalvalue);
 }  // namespace meqtllib
 
 #endif  //_SNPLIB_SRC_SNP_H_

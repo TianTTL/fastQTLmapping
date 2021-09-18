@@ -168,7 +168,7 @@ void UnpackGeno(char *bfileName, float* geno_data, vector<vector<int> >& NA_data
 
 
 namespace meqtllib {
-void calcBfileSize(char *bfileNameRoot, int &num_samples, int &num_snps) {
+void calcBfileSize(char *bfileNameRoot, int &num_samples, long &num_snps) {
     char bfileName[strlen(bfileNameRoot)+10];
     string s;
     ifstream inputFile;
@@ -188,7 +188,7 @@ void calcBfileSize(char *bfileNameRoot, int &num_samples, int &num_snps) {
     inputFile.close();
 }
 
-void getBfileSNPid(char *bfileNameRoot, int num_snps, 
+void getBfileSNPid(char *bfileNameRoot, long num_snps, 
                    vector<string>& omicsName, vector<int>& omicsCHR, vector<long>& omicsBP) {
     char bfileName[strlen(bfileNameRoot)+10];
     string s, one_item;
@@ -223,7 +223,7 @@ void getBfileSNPid(char *bfileNameRoot, int num_snps,
     inputFile.close();
 }
 
-void calcInputSize(char* omicsFileName, int& omicsNum, int& sampleSize) {
+void calcInputSize(char* omicsFileName, long& omicsNum, int& sampleSize) {
     int i, rowsCount, columnsCount;
     ifstream inputFile;
     string s, one_item;
@@ -249,7 +249,7 @@ void calcInputSize(char* omicsFileName, int& omicsNum, int& sampleSize) {
 //input 2 dimension omics data
 void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASignMark, char* NASign, 
                    vector<string>& omicsName, vector<int>& omicsCHR, vector<long>& omicsBP, 
-                   int omicsNum, int sampleSize, 
+                   long omicsNum, int sampleSize, 
                    string* dataArea, 
                    int thread_count) {
     ifstream inputFile;
@@ -258,7 +258,7 @@ void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASign
     string::size_type pos,lastPos;
 
     inputFile.open(fileName);
-    for (int i = 0; i < omicsNum; i++) {
+    for (long i = 0; i < omicsNum; i++) {
         getline(inputFile, one_line);
 
         lastPos = one_line.find_first_not_of(delimiter, 0);
@@ -290,14 +290,14 @@ void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASign
 
     // input omics data
 #   pragma omp parallel for schedule(dynamic) \
-    num_threads(thread_count) \
+    num_threads(1) \
     shared(omicsData, sampleSize, NASignMark, NASign, dataArea)
-    for (int i = 0; i < omicsNum; i++) {
+    for (long i = 0; i < omicsNum; i++) {
         int lineLength = dataArea[i].length();
         char s[lineLength]; strcpy(s, dataArea[i].c_str());
         int s_p = 0;
 
-        for (int j = 0; j < sampleSize; j++) {
+        for (long j = 0; j < sampleSize; j++) {
             while (s[s_p] == ' ' || s[s_p] == '\t' || s[s_p] == ',') s_p++; // skip space
             if (s_p >= lineLength) exit(1); // column number lack
 
@@ -354,12 +354,12 @@ void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASign
 }
 
 // normalize each row in omics
-void preprocessing(int omicsId, float* omicsData, float* omicsDataNorm, 
+void preprocessing(long omicsId, float* omicsData, float* omicsDataNorm, 
                    vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
                    int sampleSize, vector<vector<int> >& NASignMarkCurr) {
     double omicsRowSumCurr, omicsRowSDCurr, omicsRowMeanCurr;
     int sampleSizeCurr;
-    int j;
+    long j;
 
     // preprocess the row sum for omics
     omicsRowSumCurr = 0;
@@ -398,7 +398,6 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
                      float* omics1DataCurr, float* omics2DataCurr, 
                      vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
                      vector<double>& omics1RowSum, vector<double>& omics2RowSum) {
-    int i;
     double corr;
     int sampleSizeCurr, df_t;
     vector<int> NASignMarkCurr;
@@ -431,7 +430,7 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
     }
 
     // build current omics data with NA
-    for (i = 0; i < sampleSize; i++) {
+    for (long i = 0; i < sampleSize; i++) {
         omics1DataCurr[i] = omics1Data[i];
         omics2DataCurr[i] = omics2Data[i];
     }
@@ -486,6 +485,14 @@ linearFitRlt linearFit(int currentOmics1, int currentOmics2,
 
     return rlt;
 }
+
+void rCriticalValueCalc(double P, int sampleSize, double &rCriticalvalue) {
+    double tCriticalValue;
+    tCriticalValue = gsl_cdf_tdist_Qinv(P/2, sampleSize - 2); // t critical value
+    rCriticalvalue = sqrt(pow(tCriticalValue, 2) / (sampleSize - 2 + pow(tCriticalValue, 2))) * (sampleSize - 1); // correlation critical value, times sampleSize
+    return;
+}
+
 }  // namespace meqtllib
 
 int main(int argc, char **argv) {
@@ -493,10 +500,8 @@ int main(int argc, char **argv) {
     int thread_count;
     char* NASign;
     long precision_config;
-    double cisP, transP;
-    int omics1Num, omics2Num, sampleSize;
-    long cisDist;
-    float missingRateThd, MAFThd;
+    double cisP, lcisP, transP;
+    long cisDist, lcisDist;
 
     omics1FileName = argv[1];
     omics2FileName = argv[2];
@@ -505,9 +510,11 @@ int main(int argc, char **argv) {
     missingRateThd = atof(argv[5]);
     MAFThd = atof(argv[6]);
     cisDist = stol(argv[7]);
-    cisP = atof(argv[8]);
-    transP = atof(argv[9]);
-    thread_count = stoi(argv[10]);
+    lcisDist = stol(argv[8]);
+    cisP = atof(argv[9]);
+    lcisP = atof(argv[10]);
+    transP = atof(argv[11]);
+    thread_count = stoi(argv[12]);
 
     // global starting time stamp 
     double time_start_whole = omp_get_wtime(), time_end_whole;
@@ -532,15 +539,15 @@ int main(int argc, char **argv) {
     outputLogFile << endl;
 
     // critical value of t test
-    double tCriticalValue, cisRCriticalValue, transRCriticalValue;
-    tCriticalValue = gsl_cdf_tdist_Qinv(cisP/2, sampleSize - 2); // t critical value
-    cisRCriticalValue = sqrt(pow(tCriticalValue, 2) / (sampleSize - 2 + pow(tCriticalValue, 2))) * (sampleSize - 1); // correlation critical value, times sampleSize
+    double cisRCriticalValue, lcisRCriticalValue, transRCriticalValue;
+    rCriticalValueCalc(cisP, sampleSize, cisRCriticalValue);
     outputLogFile << "cis-QTL pearson correlation critical value: " << cisRCriticalValue / (sampleSize - 1) << endl << endl;
-    tCriticalValue = gsl_cdf_tdist_Qinv(transP/2, sampleSize - 2); // t critical value
-    transRCriticalValue = sqrt(pow(tCriticalValue, 2) / (sampleSize - 2 + pow(tCriticalValue, 2))) * (sampleSize - 1); // correlation critical value, times sampleSize
+    rCriticalValueCalc(lcisP, sampleSize, lcisRCriticalValue);
+    outputLogFile << "lcis-QTL pearson correlation critical value: " << lcisRCriticalValue / (sampleSize - 1) << endl << endl;
+    rCriticalValueCalc(transP, sampleSize, transRCriticalValue);
     outputLogFile << "trans-QTL pearson correlation critical value: " << transRCriticalValue / (sampleSize - 1) << endl << endl;
 
-    // header of result file for P < 1e-10
+    // header of result file for cis-QTL
     char cisOutputFileName[strlen(outputFileName)+10];
     strcpy(cisOutputFileName, outputFileName);
     strcat(cisOutputFileName, ".cis.rlt");
@@ -548,7 +555,15 @@ int main(int argc, char **argv) {
     cisOutputFile.open(cisOutputFileName);
     cisOutputFile << "SNP.id\t" << "Trait.id\t" << "BETA\t" << "SE\t" << "R2\t" << "T\t" << "P\t" << "NMISS\n";
     cisOutputFile.close();
-    // header of result file for P < 1e-2
+    // header of result file for lcis-QTL
+    char lcisOutputFileName[strlen(outputFileName)+10];
+    strcpy(lcisOutputFileName, outputFileName);
+    strcat(lcisOutputFileName, ".lcis.rlt");
+    ofstream lcisOutputFile;
+    lcisOutputFile.open(lcisOutputFileName);
+    lcisOutputFile << "SNP.id\t" << "Trait.id\t" << "BETA\t" << "SE\t" << "R2\t" << "T\t" << "P\t" << "NMISS\n";
+    lcisOutputFile.close();
+    // header of result file for trans-QTL
     char transOutputFileName[strlen(outputFileName)+10];
     strcpy(transOutputFileName, outputFileName);
     strcat(transOutputFileName, ".trans.rlt");
@@ -580,7 +595,7 @@ int main(int argc, char **argv) {
            omics1Data, omics1DataNorm, \
            sampleSize, \
            omics1RowSum, omics1RowSD, NASignMark1)
-    for (int i = 0; i < omics1Num; i++) {
+    for (long i = 0; i < omics1Num; i++) {
         preprocessing(i, omics1Data, omics1DataNorm, omics1RowSum, omics1RowSD, sampleSize, NASignMark1);
     }
     // time stamp for preprocessing
@@ -609,7 +624,7 @@ int main(int argc, char **argv) {
            omics2Data, omics2DataNorm, \
            sampleSize, \
            omics2RowSum, omics2RowSD, NASignMark2)
-    for (int i = 0; i < omics2Num; i++) {
+    for (long i = 0; i < omics2Num; i++) {
         preprocessing(i, omics2Data, omics2DataNorm, omics2RowSum, omics2RowSD, sampleSize, NASignMark2);
     }
     // time stamp for preprocessing
@@ -617,18 +632,18 @@ int main(int argc, char **argv) {
     outputLogFile << "trait data normalization has finished, time used: " << time_end_whole - time_start_whole << " s" << endl << endl;
 
     // split Block schedule
-    int omics1BlockStride = min(omics1Num, blockSize);
-    int omics2BlockStride = min(omics2Num, blockSize);
-    int omics1BlockNum = (int)(omics1Num + omics1BlockStride - 1) / omics1BlockStride;
-    int omics2BlockNum = (int)(omics2Num + omics2BlockStride - 1) / omics2BlockStride;
-    int blockNum = omics1BlockNum * omics2BlockNum;
+    long omics1BlockStride = min(omics1Num, blockSize);
+    long omics2BlockStride = min(omics2Num, blockSize);
+    long omics1BlockNum = (int)(omics1Num + omics1BlockStride - 1) / omics1BlockStride;
+    long omics2BlockNum = (int)(omics2Num + omics2BlockStride - 1) / omics2BlockStride;
+    long blockNum = omics1BlockNum * omics2BlockNum;
 
     // time stamp for preprocessing
     time_end_whole = omp_get_wtime();
     outputLogFile << "preprocessing has finished, time used: " << time_end_whole - time_start_whole << " s" << endl << endl;
 
 #   pragma omp parallel \
-    num_threads(min(thread_count, blockNum)) \
+    num_threads(min((long)thread_count, blockNum)) \
     shared(omics1Data, omics2Data, \
            omics1Name, omics2Name, \
            omics1CHR, omics2CHR, omics1BP, omics2BP, \
@@ -638,20 +653,24 @@ int main(int argc, char **argv) {
            omics1RowSum, omics2RowSum, \
            omics1RowSD, omics2RowSD, \
            NASignMark1, NASignMark2, \
-           cisDist, cisRCriticalValue, transRCriticalValue, \
-           precision_config, cisOutputFileName, transOutputFileName, cisP, transP, \
+           cisDist, lcisDist, \
+           cisRCriticalValue, lcisRCriticalValue, transRCriticalValue, \
+           precision_config, cisOutputFileName, lcisOutputFileName, transOutputFileName, \
+           cisP, lcisP, transP, \
            outputLogFile)
     {
         // mark of omics id in current block
-        int omics1BlockHead, omics2BlockHead;
+        long omics1BlockHead, omics2BlockHead;
 
         // alloc space for omics data contains NA
         float* omics1DataCurr = (float*) mkl_malloc(sizeof(float) * sampleSize, 64);
         float* omics2DataCurr = (float*) mkl_malloc(sizeof(float) * sampleSize, 64);
 
         // alloc space for current result on each thread
-        linearFitRlt* cisRltArr = new linearFitRlt[omics1BlockStride * omics2BlockStride];
-        linearFitRlt* transRltArr = new linearFitRlt[omics1BlockStride * omics2BlockStride];
+        linearFitRlt* rltArr = new linearFitRlt[omics1BlockStride * omics2BlockStride];
+        int* cisRltArr = new int[omics1BlockStride * omics2BlockStride];
+        int* lcisRltArr = new int[omics1BlockStride * omics2BlockStride];
+        int* transRltArr = new int[omics1BlockStride * omics2BlockStride];
         float* corr = (float*) mkl_malloc(sizeof(float) * omics1BlockStride * omics2BlockStride, 64);
 
 #       pragma omp for schedule(dynamic)
@@ -665,23 +684,27 @@ int main(int argc, char **argv) {
                         0, corr, omics2BlockStride);
 
             // number of items in current result
-            int cisSigNum = 0;
-            int transSigNum = 0;
+            int cisSigNum = 0, lcisSigNum = 0, transSigNum = 0, sumSigNum = 0;
             int corrP = 0;
-            for (int j = omics1BlockHead; j < min(omics1BlockHead + omics1BlockStride, omics1Num); j++) {
-                for (int k = omics2BlockHead; k < min(omics2BlockHead + omics2BlockStride, omics2Num); k++) {
+            for (long j = omics1BlockHead; j < min(omics1BlockHead + omics1BlockStride, omics1Num); j++) {
+                for (long k = omics2BlockHead; k < min(omics2BlockHead + omics2BlockStride, omics2Num); k++) {
                     float corrCurr = abs(corr[corrP++]);
-                    bool cisFilter = false, transFilter = false;
+                    bool cisFilter = false, transFilter = false, lcisFilter = false;
                     if (omics1CHR[j] == omics2CHR[k] && omics1CHR[j] > 0 && omics2CHR[k] > 0 &&
                         abs(omics1BP[j] - omics2BP[k]) <= cisDist && omics1BP[j] > 0 && omics2BP[k] > 0) {
                         if (corrCurr > cisRCriticalValue) {
                             cisFilter = true;
                         }
+                    }  else if (omics1CHR[j] == omics2CHR[k] && omics1CHR[j] > 0 && omics2CHR[k] > 0 &&
+                                abs(omics1BP[j] - omics2BP[k]) <= lcisDist && omics1BP[j] > 0 && omics2BP[k] > 0) {
+                        if (corrCurr > lcisRCriticalValue) {
+                            lcisFilter = true;
+                        }
                     } else if (corrCurr > transRCriticalValue) {
                         transFilter = true;
                     }
   
-                    if (cisFilter || transFilter) {
+                    if (cisFilter || lcisFilter || transFilter) {
                         linearFitRlt rlt = linearFit(j, k, 
                               sampleSize, MAFThd, missingRateThd, 
                               &omics1Data[j * sampleSize], &omics2Data[k * sampleSize], 
@@ -690,12 +713,17 @@ int main(int argc, char **argv) {
                               omics1RowSum, omics2RowSum);
 
                         if (cisFilter && rlt.p <= cisP && rlt.status == 0) {
-                            cisRltArr[cisSigNum] = rlt;
-                            cisSigNum++;
-                        } else
-                        if (transFilter && rlt.p <= transP && rlt.status == 0) {
-                            transRltArr[transSigNum] = rlt;
-                            transSigNum++;
+                            rltArr[sumSigNum] = rlt;
+                            cisRltArr[cisSigNum] = sumSigNum;
+                            cisSigNum++; sumSigNum++;
+                        } else if (lcisFilter && rlt.p <= lcisP && rlt.status == 0) {
+                            rltArr[sumSigNum] = rlt;
+                            lcisRltArr[lcisSigNum] = sumSigNum;
+                            lcisSigNum++; sumSigNum++;
+                        } else if (transFilter && rlt.p <= transP && rlt.status == 0) {
+                            rltArr[sumSigNum] = rlt;
+                            transRltArr[transSigNum] = sumSigNum;
+                            transSigNum++; sumSigNum++;
                         }
                     }
                 }
@@ -710,29 +738,44 @@ int main(int argc, char **argv) {
                 cisOutputFile.open(cisOutputFileName, ios::app);
                 cisOutputFile << setprecision(2);
                 for (int j = 0; j < cisSigNum; j++){
-                        cisOutputFile << omics1Name[cisRltArr[j].currentOmics1] << "\t";
-                        cisOutputFile << omics2Name[cisRltArr[j].currentOmics2] << "\t";
-                        cisOutputFile << cisRltArr[j].b << "\t";
-                        cisOutputFile << cisRltArr[j].se << "\t";
-                        cisOutputFile << cisRltArr[j].r2 << "\t";
-                        cisOutputFile << cisRltArr[j].t << "\t";
-                        cisOutputFile << cisRltArr[j].p << "\t";
-                        cisOutputFile << cisRltArr[j].nmiss << "\n";
+                        cisOutputFile << omics1Name[rltArr[cisRltArr[j]].currentOmics1] << "\t";
+                        cisOutputFile << omics2Name[rltArr[cisRltArr[j]].currentOmics2] << "\t";
+                        cisOutputFile << rltArr[cisRltArr[j]].b << "\t";
+                        cisOutputFile << rltArr[cisRltArr[j]].se << "\t";
+                        cisOutputFile << rltArr[cisRltArr[j]].r2 << "\t";
+                        cisOutputFile << rltArr[cisRltArr[j]].t << "\t";
+                        cisOutputFile << rltArr[cisRltArr[j]].p << "\t";
+                        cisOutputFile << rltArr[cisRltArr[j]].nmiss << "\n";
                 }
                 cisOutputFile.close();
+
+                ofstream lcisOutputFile;
+                lcisOutputFile.open(lcisOutputFileName, ios::app);
+                lcisOutputFile << setprecision(2);
+                for (int j = 0; j < lcisSigNum; j++){
+                        lcisOutputFile << omics1Name[rltArr[lcisRltArr[j]].currentOmics1] << "\t";
+                        lcisOutputFile << omics2Name[rltArr[lcisRltArr[j]].currentOmics2] << "\t";
+                        lcisOutputFile << rltArr[lcisRltArr[j]].b << "\t";
+                        lcisOutputFile << rltArr[lcisRltArr[j]].se << "\t";
+                        lcisOutputFile << rltArr[lcisRltArr[j]].r2 << "\t";
+                        lcisOutputFile << rltArr[lcisRltArr[j]].t << "\t";
+                        lcisOutputFile << rltArr[lcisRltArr[j]].p << "\t";
+                        lcisOutputFile << rltArr[lcisRltArr[j]].nmiss << "\n";
+                }
+                lcisOutputFile.close();
 
                 ofstream transOutputFile;
                 transOutputFile.open(transOutputFileName, ios::app);
                 transOutputFile << setprecision(2);
                 for (int j = 0; j < transSigNum; j++){
-                        transOutputFile << omics1Name[transRltArr[j].currentOmics1] << "\t";
-                        transOutputFile << omics2Name[transRltArr[j].currentOmics2] << "\t";
-                        transOutputFile << transRltArr[j].b << "\t";
-                        transOutputFile << transRltArr[j].se << "\t";
-                        transOutputFile << transRltArr[j].r2 << "\t";
-                        transOutputFile << transRltArr[j].t << "\t";
-                        transOutputFile << transRltArr[j].p << "\t";
-                        transOutputFile << transRltArr[j].nmiss << "\n";
+                        transOutputFile << omics1Name[rltArr[transRltArr[j]].currentOmics1] << "\t";
+                        transOutputFile << omics2Name[rltArr[transRltArr[j]].currentOmics2] << "\t";
+                        transOutputFile << rltArr[transRltArr[j]].b << "\t";
+                        transOutputFile << rltArr[transRltArr[j]].se << "\t";
+                        transOutputFile << rltArr[transRltArr[j]].r2 << "\t";
+                        transOutputFile << rltArr[transRltArr[j]].t << "\t";
+                        transOutputFile << rltArr[transRltArr[j]].p << "\t";
+                        transOutputFile << rltArr[transRltArr[j]].nmiss << "\n";
                 }
                 transOutputFile.close();
             }
