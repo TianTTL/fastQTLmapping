@@ -5,34 +5,32 @@
 
 ##   命令行参数
 
-| 序号 | 程序内变量名   | 描述                                   |
-| ---- | -------------- | -------------------------------------- |
-| 1    | omics1FileName | 基因组数据文件名，不包括扩展名，字符串 |
-| 2    | omics2FileName | trait数据文件名，包括扩展名，字符串    |
-| 3    | outputFileName | 输出文件文件名，字符串                 |
-| 4    | NASign         | 缺失值标记，字符串                     |
-| 5    | missingRateThd | missing rate 阈值，浮点型              |
-| 6    | MAFThd         | MAF 阈值，浮点型                       |
-| 7    | cisDist        | cis- / lcis- 划分阈值                  |
-| 8    | lcisDist       | lcis- / trans- 距离划分阈值            |
-| 9    | cisP           | cis- 显著性阈值，浮点型                |
-| 10   | lcisP          | lcis- 显著性阈值，浮点型               |
-| 11   | transP         | trans- 显著性阈值，浮点型              |
-| 12   | thread_cout    | 并行数                                 |
+| Interface                             | 程序内变量名                  | 描述                                                         |
+| ------------------------------------- | ----------------------------- | ------------------------------------------------------------ |
+| `--omics1 <omics1FileName> ['bfile']` | `omics1FileName`, `bfileFlag` | 第一个组学数据文件名，字符串。如果有参数`bfileFlag`，则说明第一个组学为plink binary format格式的基因组数据，此时只给出不带扩展名的文件路径。 |
+| `--omics2 <omics2FileName>`           | `omics2FileName`              | 第二个组学数据文件名，字符串。                               |
+| `--out <outputFileName>`              | `outputFileName`              | 输出文件文件名，字符串。                                     |
+| `[-p <globalP>`]                      | `globalP`                     | 全局显著性阈值。默认为使用 Bonferroni correction 校正后的显著性阈值。 |
+| `[--cov <covarFileName>]`             | `covarFileName`               | 协变量数据文件名，字符串。如不设置，则表示计算中不涉及协变量。 |
+| `[--na <NASign>]`                     | `NASign`                      | 缺失值标记，字符串。默认值为 `NA`。                          |
+| `[--missing-rate <missingRateThd>]`   | `missingRateThd`              | missing rate 阈值，浮点型。默认值为 10%。                    |
+| `[--dl <distLv> ...]`                 | `distLv`                      | 用于将位点对之间根据物理距离划分为不同的水平。可以设置依次递增的多个值，如$d_1, d_2, d_3 ... d_m$​​​​​，则物理位置距离属于 $[0, d1)$​​​​ 为 level 1， $[d_2, d_3)$​​​​ 为 level 2, $[d_m, +\infty)$​​​​ 为level m+1。如不设置，则所有结果均归为 level 1。 |
+| `[--dlp <distLvP> ...]`               | `distLvP`                     | 对于不同的距离水平分别设置的显著性阈值。数量等于`distLv`，分别表示第1到第m个level 的显著性阈值。第m+1个level的显著性阈值为`globalP`。如不设置，则所有距离水品的显著性阈值均为``globalP`。 |
+| `[--threads <threadMaxN>]`            | `threadMaxN`                  | 最大并行数。默认值为1。                                      |
+| `[--omics1norm zscore|rank]`          | `omics1Norm`                  | 设置第一个组学数据的标准化方式。`zscore`为Z值标准化。`rank`为rank-base标准化。不设置则不做标准化。 |
+| `[--omics2norm zscore|rank]`          | `omics2Norm`                  | 设置第二个组学数据的标准化方式。`zscore`为Z值标准化。`rank`为rank-base标准化。不设置则不做标准化。 |
 
  
 
 ##   输入描述
 
-基因组数据的格式为plink软件生成的二进制基因组文件，由三个扩展名分别为.bed .bim .fam的文件共同构成。
+组学数据指参与相关性检验的两个生命组学，格式为以空格、制表符或逗号分隔的文本型二维矩阵，无表头。前三列分别表示位点名称，位点所在染色体，位点位置，之后的每列表示一个样本；每行表示一个组学位点。
 
-trait数据指待鉴定QTL的任意生命组学，格式为无表头以空格或制表符分隔的文本型二维矩阵。前三列分别表示位点名称，位点所在染色体，位点位置，之后的每列表示一个样本；每行表示一个组学位点。
+特别地，当第一个组学表示基因组时，其格式也可以为plink软件生成的二进制基因组文件，由三个扩展名分别为.bed .bim .fam的文件共同构成。
 
-基因组数据和trait数据的样本顺序需保持一致。
+协变量数据指需要被校正的协变量信息，格式为以空格、制表符或逗号分隔的数值型二维矩阵，无表头。每列表示一个样本；每行表示一个协变量。
 
-基因组数据的缺失值遵循plink格式的默认定义，triat文件的缺失值用唯一字符串标识，该标识需通过第四个命令行参数指明。
-
-显著性阈值都是(0,1]之间的浮点数，可以用科学计数法表示。
+组学数据和协变量数据的样本顺序需保持一致。缺失值需用唯一字符串标识。plink二进制基因组数据的缺失值遵循plink软件的默认定义，
 
 
 

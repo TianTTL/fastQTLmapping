@@ -96,40 +96,57 @@ namespace meqtllib {
 #define VARNUM 2
 
 struct linearFitRlt{
-    int currentOmics1;
-    int currentOmics2;
+    uint32_t omics1Id;
+    uint32_t omics2Id;
     float b;
     float t;
     double p;
     float se; // beta / t
     float r2; 
-    int nmiss;
-    int status; // 0: good; 1: multicollinearity; 2: constant value; 3: matrix inversion error
+    uint32_t nmiss;
+    uint32_t status; // 0: good; 1: missing rate error
+    uint32_t level;
 };
 
-long omics1Num;
-long omics2Num;
-int sampleSize;
+uint64_t omics1Num;
+uint64_t omics2Num;
+uint64_t covarNum;
+uint32_t sampleSize;
 float missingRateThd, MAFThd;
-const long blockSize = 10000;
+const uint64_t blockSize = 10000;
+const uint32_t precision_config = 2;
 
-void calcBfileSize(char *bfileNameRoot, int &num_samples, long &num_snps);
-void getBfileSNPid(char *bfileNameRoot, int num_snps, vector<string>& omicsName);
-void calcInputSize(char* omicsFileName, long& omicsNum, int& sampleSize);
-void input2Dfloat(float* omicsData, char* fileName, vector<vector<int> >& NASignMark, char* NASign, 
-                   vector<string>& omicsName, int omicsNum, int sampleSize, 
-                   string* dataArea, 
-                   int thread_count);
-void preprocessing(float* omicsData, float* omicsDataNorm, 
-                   vector<double>& omicsRowSum, vector<double>& omicsRowSD, 
-                   int omicsNum, int sampleSize, vector<vector<int> >& NASignMarkCurr);
-linearFitRlt linearFit(int currentOmics1, int currentOmics2, 
-                     int sampleSize, float MAFThd, float missingRateThd,
-                     float* omics1Data, float* omics2Data, 
-                     float* omics1DataCurr, float* omics2DataCurr, 
-                     vector<vector<int> >& NASignMark1, vector<vector<int> >& NASignMark2,
-                     vector<double>& omics1RowSum, vector<double>& omics2RowSum);
-void rCriticalValueCalc(double P, int sampleSize, double &rCriticalvalue);
+void calcBfileSize(string bfileNameRoot, uint32_t &num_samples, uint64_t &num_snps);
+void getBfileSNPid(string bfileNameRoot, uint64_t num_snps, 
+                   vector<string>& omicsName, vector<uint32_t>& omicsCHR, vector<uint64_t>& omicsBP);
+void calcInputSize(string omicsFileName, uint64_t& omicsNum);
+void calcCovarSize(string covarFileName, string NASign, uint64_t sampleSize, uint64_t& covarNum, 
+                   vector<bool>& sampleFltSign, uint32_t& covarNANum);
+void input2DfloatParse(float* omicsData, string fileName, vector<vector<uint32_t> >& NASignMark, string NASign, 
+                  vector<string>& omicsName, vector<uint32_t>& omicsCHR, vector<uint64_t>& omicsBP, 
+                  uint64_t omicsNum, uint32_t sampleSize, 
+                  string* dataArea, 
+                  uint32_t threadMaxN, 
+                  vector<bool>& sampleFltSign, uint32_t covarNANum);
+void inputCovar(float* covarData, string fileName, 
+                uint32_t covarNum, uint32_t sampleSize, vector<bool>& sampleFltSign, uint32_t covarNANum);
+void fillNA(float* a, uint64_t omicsId, 
+           uint32_t sampleSize, vector<vector<uint32_t> >& NASignMarkCurr);
+void cntrl(float* a, uint64_t omicsId, 
+           uint32_t sampleSize, 
+           vector<double>& rowSD,
+           vector<vector<uint32_t> >& NASignMarkCurr);
+void cntrlQuant(float *omicsData, uint64_t omicsId, uint32_t sampleSize,
+                vector<vector<uint32_t> >& NASignMarkCurr);
+vector<float> rankSort(const vector<float>& v_temp, uint64_t sampleSize);
+linearFitRlt linearFit(float corr, 
+                       uint32_t omics1Id, uint32_t omics2Id, 
+                       uint32_t sampleSize, uint32_t covarNum, 
+                       float missingRateThd,
+                       vector<vector<uint32_t> >& NASignMark1, vector<vector<uint32_t> >& NASignMark2, 
+                       vector<double>& omics1NormSqrInv, 
+                       vector<double>& omics1Scaling, vector<double>& omics2Scaling);
+void rCriticalValueCalc(double P, uint32_t sampleSize, double &rCriticalValue);
 }  // namespace meqtllib
 
 #endif  //_SNPLIB_SRC_SNP_H_
