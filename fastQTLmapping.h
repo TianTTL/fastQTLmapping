@@ -118,20 +118,18 @@ const uint32_t precision_config = 2;
 
 void calcBfileSize(string bfileNameRoot, uint32_t &num_samples, uint64_t &num_snps);
 void getBfileSNPid(string bfileNameRoot, uint64_t num_snps, 
-                   vector<string>& omicsName, vector<uint32_t>& omicsCHR, vector<uint64_t>& omicsBP);
+                   vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP);
 void calcInputSize(string omicsFileName, uint64_t& omicsNum);
 void calcCovarSize(string covarFileName, string NASign, uint64_t sampleSize, uint64_t& covarNum, 
                    vector<bool>& sampleFltSign, uint32_t& covarNANum);
 void input2DfloatParse(float* omicsData, string fileName, vector<vector<uint32_t> >& NASignMark, string NASign, 
-                  vector<string>& omicsName, vector<uint32_t>& omicsCHR, vector<uint64_t>& omicsBP, 
+                  vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP, 
                   uint64_t omicsNum, uint32_t sampleSize, 
                   string* dataArea, 
                   uint32_t threadMaxN, 
                   vector<bool>& sampleFltSign, uint32_t covarNANum);
 void inputCovar(float* covarData, string fileName, 
                 uint32_t covarNum, uint32_t sampleSize, vector<bool>& sampleFltSign, uint32_t covarNANum);
-void fillNA(float* a, uint64_t omicsId, 
-           uint32_t sampleSize, vector<vector<uint32_t> >& NASignMarkCurr);
 void cntrl(float* a, uint64_t omicsId, 
            uint32_t sampleSize, 
            vector<double>& rowSD,
