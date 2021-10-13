@@ -7,7 +7,7 @@
 
 ## 使用方法
 
-本软件基于Linux开发，使用命令 `fastQTLmapping`调用软件，通过命令行参数传入信息。
+`fastQTLmapping`基于Linux开发，使用命令 `fastQTLmapping`调用软件，通过命令行参数传入信息。`fastQTLmapping`会读入两个组学数据，将第一个组学的每一个位点作为自变量，第二个组学的每一个位点作为因变量，全面地计算所有位点对之间的相关性分析。
 
 在不输入任何参数，或输入参数有误时，`fastQTLmapping`将会在屏幕上打印帮助文档。
 
@@ -47,10 +47,6 @@
 ##   输出描述
 
 如果程序正常运行，则会输出两个文件。设用户在命令行指定的输出文件路径为`$outputFileName`，则文件`$outputFileName.log`为日志文件，文件`$outputFileName`为结果文件。
-
-
-
-## 运行环境
 
 
 

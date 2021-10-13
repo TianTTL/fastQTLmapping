@@ -735,19 +735,19 @@ int main(int argc, char *argv[]) {
     if (globalP < 0) {
         globalP = 0.05 / omics1Num / omics2Num;
     }
-    distLvP.push_back(globalP); // set last distLvP element as global P threshold
 
     // critical value of t test
     vector<double> rCriticalValue(1 + distLvNum);
+    for (uint32_t i = 0; i < distLvNum; i++) {
+        rCriticalValueCalc(distLvP[i], sampleSize, rCriticalValue[i]);
+        outputLogFile << "level " << i + 1 << " distance threshold: " << distLv[i] << endl; // level number start from 1
+        outputLogFile << "level " << i + 1 << " pearson correlation significant threshold: " << distLvP[i] << endl;
+        outputLogFile << "level " << i + 1 << " pearson correlation critical value: " << rCriticalValue[i] / (sampleSize - 1) << endl;
+    }
+    distLvP.push_back(globalP); // set last distLvP element as global P threshold
     rCriticalValueCalc(distLvP[distLvNum], sampleSize, rCriticalValue[distLvNum]); // set last rCriticalValue element as global r critical value
     outputLogFile << "global pearson correlation significant threshold: " << distLvP[distLvNum] << endl;
     outputLogFile << "global pearson correlation critical value: " << rCriticalValue[distLvNum] / (sampleSize - 1) << endl;
-    for (uint32_t i = 0; i < distLvNum; i++) {
-        rCriticalValueCalc(distLvP[i], sampleSize, rCriticalValue[i]);
-        outputLogFile << "level " << i << " distance threshold: " << distLv[i] << endl;
-        outputLogFile << "level " << i << " pearson correlation significant threshold: " << distLvP[i] << endl;
-        outputLogFile << "level " << i << " pearson correlation critical value: " << rCriticalValue[i] / (sampleSize - 1) << endl;
-    }
     outputLogFile << endl;
 
     // header of result file for output file
@@ -777,7 +777,7 @@ int main(int argc, char *argv[]) {
     
     // time stamp for input omics1
     time_end_whole = omp_get_wtime();
-    outputLogFile << "first omics data has been input, time used: " << time_end_whole - time_start_whole << " s" << endl << endl;
+    outputLogFile << "first omics data has been input, time used: " << time_end_whole - time_start_whole << " s" << endl;
 
     // input omics2 data
     float* omics2Data = (float*) mkl_malloc(sizeof(float) * omics2Num * sampleSize, 64);
@@ -794,7 +794,7 @@ int main(int argc, char *argv[]) {
     delete [] dataArea;
     // time stamp for input omics2
     time_end_whole = omp_get_wtime();
-    outputLogFile << "second omics data has been input, time used: " << time_end_whole - time_start_whole << " s" << endl << endl;
+    outputLogFile << "second omics data has been input, time used: " << time_end_whole - time_start_whole << " s" << endl;
     
     // input covariates data
     float* covarData = (float*) mkl_malloc(sizeof(float) * covarNum * sampleSize, 64);
@@ -922,7 +922,7 @@ int main(int argc, char *argv[]) {
 
     // time stamp for orthogonal projection
     time_end_whole = omp_get_wtime();
-    outputLogFile << "orthogonal projection has finished, time used: " << time_end_whole - time_start_whole << " s" << endl << endl;
+    outputLogFile << "orthogonal projection has finished, time used: " << time_end_whole - time_start_whole << " s" << endl;
 
     // orthogonal projection finished
 
@@ -935,7 +935,7 @@ int main(int argc, char *argv[]) {
 
     // time stamp for preprocessing
     time_end_whole = omp_get_wtime();
-    outputLogFile << "preprocessing has finished, time used: " << time_end_whole - time_start_whole << " s" << endl << endl;
+    outputLogFile << "preprocessing has finished, time used: " << time_end_whole - time_start_whole << " s" << endl;
 
 #   pragma omp parallel \
     num_threads(min((uint64_t)threadMaxN, blockNum)) \
