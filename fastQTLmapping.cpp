@@ -648,12 +648,21 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    // Bonferroni correction
+    if (globalP < 0) {
+        globalP = 0.05 / omics1Num / omics2Num;
+    }
+    // fill distLvP with globalP
+    if (distLvP.size() == 0) {
+        distLvP.assign(distLv.size(), globalP);
+    }
+    // check equal length about distLv and distLvP
     if (distLv.size() != distLvP.size()) {
         cout << "Error: the length of distLv and distLvP is not equal.\n";
         return 1;
     }
     uint32_t distLvNum = distLvP.size();
-
+    // check ascending about distLv
     for (uint32_t i = 1; i < distLv.size(); i++) {
         if (distLv[i] <= distLv[i - 1]) {
             cout << "Error: distLv is not ascending.\n";
@@ -730,11 +739,6 @@ int main(int argc, char *argv[]) {
     outputLogFile << "valid sample number : " << sampleSize << endl;
     outputLogFile << covarNANum << " samples are excluded because covariates missing" << endl;
     outputLogFile << endl;
-
-    // Bonferroni correction
-    if (globalP < 0) {
-        globalP = 0.05 / omics1Num / omics2Num;
-    }
 
     // critical value of t test
     vector<double> rCriticalValue(1 + distLvNum);

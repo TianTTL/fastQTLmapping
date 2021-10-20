@@ -17,15 +17,15 @@
 
 | Interface                             | 程序内变量名                  | 描述                                                         |
 | ------------------------------------- | ----------------------------- | ------------------------------------------------------------ |
-| `--omics1 <omics1FileName> ['bfile']` | `omics1FileName`, `bfileFlag` | 第一个组学数据文件名，字符串。如果有参数`bfileFlag`，则说明第一个组学为plink binary format格式的基因组数据，此时只给出不带扩展名的文件路径。 |
+| `--omics1 <omics1FileName> ['bfile']` | `omics1FileName`, `bfileFlag` | 第一个组学数据文件名，字符串。如果有参数`bfile`，则说明第一个组学为PLINK binary format格式的基因组数据，此时只给出不带扩展名的文件路径。 |
 | `--omics2 <omics2FileName>`           | `omics2FileName`              | 第二个组学数据文件名，字符串。                               |
 | `--out <outputFileName>`              | `outputFileName`              | 输出文件文件名，字符串。                                     |
 | `[-p <globalP>`]                      | `globalP`                     | 全局显著性阈值。默认为使用 Bonferroni correction 校正后的显著性阈值。 |
 | `[--cov <covarFileName>]`             | `covarFileName`               | 协变量数据文件名，字符串。如不设置，则表示计算中不涉及协变量。 |
 | `[--na <NASign>]`                     | `NASign`                      | 缺失值标记，字符串。默认值为 `NA`。                          |
-| `[--missing-rate <missingRateThd>]`   | `missingRateThd`              | missing rate 阈值，浮点型。默认值为 10%。低于此阈值的位点将被剔除。 |
+| `[--missing-rate <missingRateThd>]`   | `missingRateThd`              | missing rate 阈值，浮点型。默认值为 10%。高于此阈值的位点将被剔除。 |
 | `[--dl <distLv> ...]`                 | `distLv`                      | 用于将位点对之间根据物理距离划分为不同的水平。可以设置依次递增的多个值，如$d_1, d_2, d_3 ... d_m$​​​​​，则物理位置距离属于 $[0, d1)$​​​​ 为 level 1， $[d_2, d_3)$​​​​ 为 level 2, $[d_m, +\infty)$​​​​ 为level m+1。如不设置，则所有结果均归为 level 1。 |
-| `[--dlp <distLvP> ...]`               | `distLvP`                     | 对于不同的距离水平分别设置的显著性阈值。数量等于`distLv`，分别表示第1到第m个level 的显著性阈值。第m+1个level的显著性阈值为`globalP`。如不设置，则所有距离水品的显著性阈值均为``globalP`。 |
+| `[--dlp <distLvP> ...]`               | `distLvP`                     | 对于不同的距离水平分别设置的显著性阈值。数量等于`distLv`，分别表示第1到第m个level 的显著性阈值。第m+1个level的显著性阈值为`globalP`。如不设置，则所有距离水平的显著性阈值均为`globalP`。 |
 | `[--threads <threadMaxN>]`            | `threadMaxN`                  | 最大并行数。默认值为1。                                      |
 | `[--omics1norm zscore|rank]`          | `omics1Norm`                  | 设置第一个组学数据的标准化方式。`zscore`为Z值标准化。`rank`为rank-base标准化。不设置则不做标准化。 |
 | `[--omics2norm zscore|rank]`          | `omics2Norm`                  | 设置第二个组学数据的标准化方式。`zscore`为Z值标准化。`rank`为rank-base标准化。不设置则不做标准化。 |
