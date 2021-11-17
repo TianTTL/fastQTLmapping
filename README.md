@@ -31,8 +31,8 @@ If user does not enter any parameters, or if user enters invalid parameters, `fa
 | `[--dl <distLv> ...]`                 | A series of increasing numbers used to divide loci-pairs into different distance levels based on physical distance. Assuming the value is set to $d_1, d_2, d_3 ... d_m$​​​​​, then the loci-pairs with physical distance belongs to $[0, d1)$​​​​ is considered as level 1， $[d_2, d_3)$​​​ is level 2, ..., $[d_m, +\infty)$​​​​ is level (m+1)。If not set, all results are categorized as level 1. |
 | `[--dlp <distLvP> ...]`               | A series of numbers indicate the significance thresholds for the 1st to mth distance levels, which need to be the same length as `distLv`. The significance threshold for the (m+1)st level is `globalP`. If not set, all distance levels are set to the same significant threshold of `globalP`. |
 | `[--threads <threadMaxN>]`            | Maximum number of parallelism. The default value is 1.       |
-| `[--omics1norm zscore|rank]`          | Set the normalization method for the first omics data. `zscore` is Z-value normalization. `rank` is the rank-base normalization. The default is no normalization. |
-| `[--omics2norm zscore|rank]`          | Set the normalization method for the second omics data. `zscore` is Z-value normalization. `rank` is the rank-base normalization. The default is no normalization. |
+| `[--omics1norm zscore\|rank]`         | Set the normalization method for the first omics data. `zscore` is Z-value normalization. `rank` is the rank-base normalization. The default is no normalization. |
+| `[--omics2norm zscore\|rank]`         | Set the normalization method for the second omics data. `zscore` is Z-value normalization. `rank` is the rank-base normalization. The default is no normalization. |
 
  
 
