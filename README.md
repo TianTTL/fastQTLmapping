@@ -5,6 +5,8 @@
 
 ## Implementation
 
+`FastQTLmapping` is a portable software based on Linux, you only need to download executable file `fastQTLmapping` to use.
+
 `FastQTLmapping` accepts input files in text format and in Plink binary format. The output file is in text format and contains all test statistics for all regressions, with the ability to control the volume of the output at preset significance thresholds. 
 
 Different thresholds can be specified according to physical distances between the markers under investigation, which facilitates the analysis of cis- and trans-mQTLs. 
