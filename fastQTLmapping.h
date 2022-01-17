@@ -110,7 +110,7 @@ struct linearFitRlt{
 
 uint64_t omics1Num;
 uint64_t omics2Num;
-uint64_t covarNum;
+uint32_t covarNum;
 uint32_t sampleSize;
 float missingRateThd, MAFThd;
 const uint64_t blockSize = 10000;
@@ -120,16 +120,19 @@ void calcBfileSize(string bfileNameRoot, uint32_t &num_samples, uint64_t &num_sn
 void getBfileSNPid(string bfileNameRoot, uint64_t num_snps, 
                    vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP);
 void calcInputSize(string omicsFileName, uint64_t& omicsNum);
-void calcCovarSize(string covarFileName, string NASign, uint64_t sampleSize, uint64_t& covarNum, 
-                   vector<bool>& sampleFltSign, uint32_t& covarNANum);
 void input2DfloatParse(float* omicsData, string fileName, vector<vector<uint32_t> >& NASignMark, string NASign, 
                   vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP, 
                   uint64_t omicsNum, uint32_t sampleSize, 
                   string* dataArea, 
                   uint32_t threadMaxN, 
                   vector<bool>& sampleFltSign, uint32_t covarNANum);
-void inputCovar(float* covarData, string fileName, 
-                uint32_t covarNum, uint32_t sampleSize, vector<bool>& sampleFltSign, uint32_t covarNANum);
+void calcCovarSize(string covarFileName, string NASign, uint64_t sampleSize, uint32_t& covarNum, 
+                   vector<bool>& sampleFltSign, uint32_t& covarNANum, 
+                   vector<int32_t>& categFlag, uint32_t& covarCategNum);
+float* inputCovar(string fileName, 
+                  uint32_t& covarNum, uint32_t sampleSize, 
+                  vector<bool>& sampleFltSign, uint32_t covarNANum, 
+                  vector<int32_t>& categFlag, uint32_t covarCategNum);
 void cntrl(float* a, uint64_t omicsId, 
            uint32_t sampleSize, 
            vector<double>& rowSD,

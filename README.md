@@ -28,6 +28,7 @@ If user does not enter any parameters, or if user enters invalid parameters, `fa
 | `--out <outputFileName>`              | Output file path.                                            |
 | `[-p <globalP>`]                      | Global significance threshold. By default the significance threshold is corrected by Bonferroni correction. |
 | `[--cov <covarFileName>]`             | Covariate file path. By default there is no covariate correction. |
+| `[--categ <categFlag>]`               | A series of integer indicate which rows of covariates are categorical, starting from 1. |
 | `[--na <NASign>]`                     | A string identifying the missing value. The default is `NA`. |
 | `[--missing-rate <missingRateThd>]`   | Missing rate threshold of concatenated dependent and explanatory variables. The default value is 10%. Loci-pairs above this threshold will be filtered out. |
 | `[--dl <distLv> ...]`                 | A series of increasing numbers used to divide loci-pairs into different distance levels based on physical distance. Assuming the value is set to $d_1, d_2, d_3 ... d_m$​​​​​, then the loci-pairs with physical distance belongs to $[0, d1)$​​​​ is considered as level 1， $[d_2, d_3)$​​​ is level 2, ..., $[d_m, +\infty)$​​​​ is level (m+1)。If not set, all results are categorized as level 1. |
@@ -42,7 +43,7 @@ If user does not enter any parameters, or if user enters invalid parameters, `fa
 
 Omics data is a space- or tab-delimited matrix without table headers. Each row represents a molecular loci, the first three columns record the locus name, the chromosome  and the bp, and subsequent columns record the molecular-level in each individuals. In particular, when the first omics data represents genomic, the [Plink Binary File](http://www.cog-genomics.org/plink/1.9/formats#bed) can be used as input data.
 
-Covariate data is a space- or tab-delimited matrix without table headers. Each column represents a sample; each row represents a covariate.
+Covariate data is a space- or tab-delimited matrix without table headers. Each column represents a sample; each row represents a covariate. Numeric covariates can be represented as numbers, while categorical covariates can be represented  as numbers or strings.
 
 The individual order of the omics data and the covariate data must be consistent. 
 

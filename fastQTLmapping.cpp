@@ -254,36 +254,6 @@ void calcInputSize(string omicsFileName, uint32_t &sampleSize, uint64_t& omicsNu
     s.clear();
 }
 
-void calcCovarSize(string covarFileName, string NASign, uint64_t sampleSize, uint64_t& covarNum, 
-                   vector<bool>& sampleFltSign, uint32_t& covarNANum) {
-    uint32_t i, rowsCount = 0;
-    ifstream inputFile;
-    string s, one_item;
-
-    inputFile.open(covarFileName);
-    assert(inputFile.is_open());
-    while (getline(inputFile, s)){
-        rowsCount++;
-        istringstream is(s);
-        for (i = 0; i < sampleSize; i++) {
-            is >> one_item;
-            if (one_item == NASign){
-                sampleFltSign[i] = true;
-            }
-        }
-        s.clear(); is.str(""); is.clear(); 
-    }
-    inputFile.close();
-    covarNum = rowsCount;
-    s.clear();
-
-    for (auto j : sampleFltSign) {
-        if (j) {
-            covarNANum += 1;
-        }
-    }
-}
-
 //input 2 dimension omics data
 void input2DfloatParse(float* omicsData, string fileName, vector<vector<uint32_t> >& NASignMark, string NASign, 
                   vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP, 
@@ -407,28 +377,140 @@ void input2DfloatParse(float* omicsData, string fileName, vector<vector<uint32_t
     }
 }
 
+void calcCovarSize(string covarFileName, string NASign, uint64_t sampleSize, uint32_t& covarNum, 
+                   vector<bool>& sampleFltSign, uint32_t& covarNANum, 
+                   vector<int32_t>& categFlag, uint32_t& covarCategNum) {
+    uint32_t i, rowsCount = 0;
+    covarCategNum = 0;
+    ifstream inputFile;
+    string s, one_item;
+    vector<int32_t> categFlagRef;
+
+    inputFile.open(covarFileName);
+    assert(inputFile.is_open());
+    while (getline(inputFile, s)){
+        rowsCount++;
+        if (find(categFlag.begin(), categFlag.end(), rowsCount) != categFlag.end()) { // categFlag starts from 1
+            covarCategNum++;
+            categFlagRef.push_back(rowsCount - 1);
+        }
+        istringstream is(s);
+        for (i = 0; i < sampleSize; i++) {
+            is >> one_item;
+            if (one_item == NASign){
+                sampleFltSign[i] = true;
+            }
+        }
+        s.clear(); is.str(""); is.clear(); 
+    }
+    inputFile.close();
+    covarNum = rowsCount;
+    s.clear();
+
+    for (auto j : sampleFltSign) {
+        if (j) {
+            covarNANum += 1;
+        }
+    }
+
+    // extract legal rows id of categorical covariates
+    // unique 
+    // sort
+    // minus 1 to make it start from 0
+    categFlag.assign(categFlagRef.begin(), categFlagRef.end());
+}
+
 //input 2 dimension covariates data
-void inputCovar(float* covarData, string fileName, 
-                uint32_t covarNum, uint32_t sampleSize, vector<bool>& sampleFltSign, uint32_t covarNANum) {
-    uint32_t i, j;
+float* inputCovar(string fileName, 
+                  uint32_t& covarNum, uint32_t sampleSize, 
+                  vector<bool>& sampleFltSign, uint32_t covarNANum, 
+                  vector<int32_t>& categFlag, uint32_t covarCategNum) {
+    uint32_t i, j, k, sid;
     ifstream inputFile;
     string s, one_item;
 
+    // transcript categorical covariates into int vector
+    // & calculate the number of levels of each categorical covariates
+    int categVar[covarCategNum * sampleSize]; // categVar starts from 0
+    vector<string> categVarTmp;
+    vector<uint32_t> categLevN;
+    uint32_t rowsCount = 0, categIdx = 0;
+    uint32_t categLevSum = 0;
+
+    inputFile.open(fileName);
+    for (auto categFlagCurr : categFlag) {
+        for (; rowsCount <= categFlagCurr; rowsCount++) {
+            getline(inputFile, s);
+        }
+        istringstream is(s);
+        sid = 0;
+        for (j = 0; j < sampleSize + covarNANum; j++) {
+            is >> one_item;
+            if (!sampleFltSign[j]) {
+                auto p = find(categVarTmp.begin(), categVarTmp.end(), one_item);
+                if (p == categVarTmp.end()) {
+                    categVarTmp.push_back(one_item);
+                    categVar[categIdx * sampleSize + sid] = categVarTmp.size() - 1;
+                } else {
+                    categVar[categIdx * sampleSize + sid] = p - categVarTmp.begin();
+                }
+                sid++;
+            }
+        }
+
+        s.clear(); is.str(""); is.clear();
+        categLevN.push_back(categVarTmp.size());
+        categVarTmp.clear();
+        categLevSum += *(categLevN.end() - 1);
+        categIdx++;
+    }
+    inputFile.close();
+
+    // input numeric and categorical covariates
+    float* covarData = (float*) mkl_malloc(sizeof(float) * 
+                                           ((covarNum - covarCategNum) + (categLevSum - covarCategNum)) * sampleSize, 
+                                           64);
+    uint32_t lastCovData = 0;
+    categIdx = 0;
     inputFile.open(fileName);
     for (i = 0; i < covarNum; i++) {
         getline(inputFile, s);
         istringstream is(s);
-        uint32_t sid = 0;
-        for (j = 0; j < sampleSize + covarNANum; j++) {
-            is >> one_item;
-            if (!sampleFltSign[j]) {
-                covarData[i * sampleSize + sid] = stod(one_item);
-                sid++;
+        sid = 0;
+
+        if (categIdx < covarCategNum && categFlag[categIdx] == i) {
+            for (j = 0; j < sampleSize + covarNANum; j++) {
+                if (!sampleFltSign[j]) {
+                    for (k = 0; k < categLevN[categIdx] - 1; k++) { // only first categLevN[categIdx] - 1 covariates will be coded as dummy
+                        covarData[(lastCovData + k) * sampleSize + sid] = 0;
+                    }
+                    auto categVarCur = categVar[categIdx * sampleSize + sid];
+                    if (categVarCur < categLevN[categIdx] - 1) {
+                        covarData[(lastCovData + categVarCur) * sampleSize + sid] = 1;
+                    }
+                    sid++;
+                }
             }
+            lastCovData += categLevN[categIdx] - 1;
+            categIdx++;
+        } else {
+            for (j = 0; j < sampleSize + covarNANum; j++) {
+                is >> one_item;
+                if (!sampleFltSign[j]) {
+                    covarData[lastCovData * sampleSize + sid] = stod(one_item);
+                    sid++;
+                }
+            }
+            lastCovData++;
         }
+        
         s.clear(); is.str(""); is.clear();
     }
     inputFile.close();
+
+    covarNum = (covarNum - covarCategNum) + (categLevSum - covarCategNum);
+
+    return(covarData);
 }
 
 // centralize one row of a matrix
@@ -614,19 +696,21 @@ int main(int argc, char *argv[]) {
     string covarFileName;
     string NASign = "NA";
     float missingRateThd = 0.1;
+    vector<int32_t> categFlag;
     vector<double> distLv;
     vector<double> distLvP;
     int32_t threadMaxN = 1;
     int32_t omics1NormMod = 0, omics2NormMod = 0;
 
     auto cli = (
-        required("--omics1") & value("omics1FileName", omics1FileName)        % "first omics file path",
-        option("bfile").set(bfileFlag)         % "useing plink binary format represente first omics",
-        required("--omics2") & value("omics2FileName", omics2FileName)       % "second omics file path",
-        required("--out") & value("outputFileName", outputFileName)                % "output file path",
+        required("--omics1") & value("omics1FileName", omics1FileName)       % "first omics file path",
+        option("bfile").set(bfileFlag)           % "useing plink binary format represente first omics",
+        required("--omics2") & value("omics2FileName", omics2FileName)      % "second omics file path",
+        required("--out") & value("outputFileName", outputFileName)               % "output file path",
         option("-p") & number("globalP", globalP)                         % "global P-value threshold",
-        option("--cov") & value("covarFileName", covarFileName)                % "covariates file path",
-        option("--na") & value("NASign", NASign)                              % "sign of missing value",
+        option("--cov") & value("covarFileName", covarFileName)               % "covariates file path",
+        option("--categ") & integers("categFlag", categFlag)  % "flag indicate categorical covariates",
+        option("--na") & value("NASign", NASign)                             % "sign of missing value",
         option("--missing-rate") & number("missingRateThd", missingRateThd) % "missing rate threshold",
         option("--dl") & numbers("distLv", distLv)     % "distance thresholds for each distance level",
         option("--dlp") & numbers("distLvP", distLvP)   % "P-value thresholds for each distance level",
@@ -662,6 +746,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     uint32_t distLvNum = distLvP.size();
+
     // check ascending about distLv
     for (uint32_t i = 1; i < distLv.size(); i++) {
         if (distLv[i] <= distLv[i - 1]) {
@@ -727,15 +812,26 @@ int main(int argc, char *argv[]) {
     // calculate input file size
     vector<bool> sampleFltSign(sampleSize, false);
     uint32_t covarNANum = 0;
+    uint32_t covarCategNum = 0;
     if (!covarFileName.empty()) {
-        calcCovarSize(covarFileName, NASign, sampleSize, covarNum, sampleFltSign, covarNANum);
+        calcCovarSize(covarFileName, NASign, sampleSize, covarNum, sampleFltSign, covarNANum, categFlag, covarCategNum);
     }
     sampleSize -= covarNANum;
+
+    // check the range of categFlag is legal
+    for (uint32_t i = 1; i < distLv.size(); i++) {
+        if (distLv[i] <= distLv[i - 1]) {
+            cout << "Error: distLv is not ascending.\n";
+            return 2;
+        }
+    }
 
     // record data scale into log file
     outputLogFile << "omics 1 number : " << omics1Num << endl;
     outputLogFile << "omics 2 number : " << omics2Num << endl;
     outputLogFile << "covariates number : " << covarNum << endl;
+    outputLogFile << "numeric number : " << covarNum - covarCategNum << endl;
+    outputLogFile << "categorical covariates number : " << covarCategNum << endl;
     outputLogFile << "valid sample number : " << sampleSize << endl;
     outputLogFile << covarNANum << " samples are excluded because covariates missing" << endl;
     outputLogFile << endl;
@@ -801,12 +897,14 @@ int main(int argc, char *argv[]) {
     outputLogFile << "second omics data has been input, time used: " << time_end_whole - time_start_whole << " s" << endl;
     
     // input covariates data
-    float* covarData = (float*) mkl_malloc(sizeof(float) * covarNum * sampleSize, 64);
-    vector<vector<uint32_t> > NASignMarkC(covarNum, vector<uint32_t>(0)); // NA mark for first omics, SNPnum * NAs
+    float* covarData;
     if (covarNum > 0) {
-        inputCovar(covarData, covarFileName, 
-                   covarNum, sampleSize, sampleFltSign, covarNANum);    
+        covarData = inputCovar(covarFileName, 
+                               covarNum, sampleSize, 
+                               sampleFltSign, covarNANum, 
+                               categFlag, covarCategNum);
     }
+    vector<vector<uint32_t> > NASignMarkC(covarNum, vector<uint32_t>(0)); // NA mark for covarates. in fact it is empty
 
     // orthogonal projection start
 
@@ -833,7 +931,6 @@ int main(int argc, char *argv[]) {
     for (uint64_t i = 0; i < omics2Num; i++) {
         cntrl(omics2Data, i, sampleSize, omics2RowSDCntrl1, NASignMark2);
     }
-    
     if (covarNum > 0) {
         // first centralization of covariates
         vector<double> covarRowSDCntrl1(covarNum);
