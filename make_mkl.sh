@@ -7,5 +7,5 @@ g++ -std=c++11 -fopenmp \
  -L${GSLROOT}/lib -lgsl -lgslcblas \
  -DMKL_ILP64  -m64  -I"${MKLROOT}/include" \
  -o $workDir/fastQTLmapping \
- -c $workDir/fastQTLmapping.cpp
+ $workDir/fastQTLmapping.cpp
 
