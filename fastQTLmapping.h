@@ -95,14 +95,13 @@ namespace meqtllib {
 /* Parameters */
 #define VARNUM 2
 
-struct linearFitRlt{
-    uint32_t omics1Id;
-    uint32_t omics2Id;
+struct linearFitRlt {
+    uint64_t omics1Id;
+    uint64_t omics2Id;
     float b;
     float t;
     double p;
     float se; // beta / t
-    float r2; 
     uint32_t nmiss;
     uint32_t status; // 0: good; 1: missing rate error
     uint32_t level;
@@ -120,7 +119,7 @@ void calcBfileSize(string bfileNameRoot, uint32_t &num_samples, uint64_t &num_sn
 void getBfileSNPid(string bfileNameRoot, uint64_t num_snps, 
                    vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP);
 void calcInputSize(string omicsFileName, uint64_t& omicsNum);
-void input2DfloatParse(float* omicsData, string fileName, vector<vector<uint32_t> >& NASignMark, string NASign, 
+void input2DfloatParse(double* omicsData, string fileName, vector<vector<uint32_t> >& NASignMark, string NASign, 
                   vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP, 
                   uint64_t omicsNum, uint32_t sampleSize, 
                   string* dataArea, 
@@ -129,24 +128,30 @@ void input2DfloatParse(float* omicsData, string fileName, vector<vector<uint32_t
 void calcCovarSize(string covarFileName, string NASign, uint64_t sampleSize, uint32_t& covarNum, 
                    vector<bool>& sampleFltSign, uint32_t& covarNANum, 
                    vector<int32_t>& categFlag, uint32_t& covarCategNum);
-float* inputCovar(string fileName, 
+double* inputCovar(string fileName, 
                   uint32_t& covarNum, uint32_t sampleSize, 
                   vector<bool>& sampleFltSign, uint32_t covarNANum, 
                   vector<int32_t>& categFlag, uint32_t covarCategNum);
-void cntrl(float* a, uint64_t omicsId, 
+void inputRplList(string rplFileName, vector<pair<uint64_t, uint64_t> >& rplList, 
+                  vector<string>& omics1Name, vector<string>& omics2Name, uint32_t threadMaxN);
+void cntrl(double* a, uint64_t omicsId, 
            uint32_t sampleSize, 
            vector<double>& rowSD,
            vector<vector<uint32_t> >& NASignMarkCurr);
-void cntrlQuant(float *omicsData, uint64_t omicsId, uint32_t sampleSize,
+void cntrlQuant(double *omicsData, uint64_t omicsId, uint32_t sampleSize,
                 vector<vector<uint32_t> >& NASignMarkCurr);
-vector<float> rankSort(const vector<float>& v_temp, uint64_t sampleSize);
-linearFitRlt linearFit(float corr, 
-                       uint32_t omics1Id, uint32_t omics2Id, 
+vector<double> rankSort(const vector<double>& v_temp, uint64_t sampleSize);
+linearFitRlt linearFit(double corr, 
+                       uint64_t omics1Id, uint64_t omics2Id, uint32_t level, 
                        uint32_t sampleSize, uint32_t covarNum, 
                        float missingRateThd,
+                       double* omics1Data, double* omics2Data, double* covarData, 
                        vector<vector<uint32_t> >& NASignMark1, vector<vector<uint32_t> >& NASignMark2, 
-                       vector<double>& omics1NormSqrInv, 
-                       vector<double>& omics1Scaling, vector<double>& omics2Scaling);
+                       vector<double>& omics1Sum, vector<double>& omics2Sum, vector<double>& covarSum, 
+                       vector<double>& omics1Sqr, vector<double>& omics1OrtgSqrInv, 
+                       vector<vector<double> >& omics1DotCov, vector<vector<double> >& omics2DotCov, vector<vector<double> >& CovarInter,
+                       vector<double>& omics1Scaling, vector<double>& omics2Scaling, 
+                       vector<double>& omics1RowSDCntrl1, vector<double>& omics2RowSDCntrl1);
 void rCriticalValueCalc(double P, uint32_t sampleSize, double &rCriticalValue);
 }  // namespace meqtllib
 
