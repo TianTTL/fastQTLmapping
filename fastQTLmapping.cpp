@@ -891,8 +891,8 @@ int main(int argc, char *argv[]) {
     auto fmt = doc_formatting{} .first_column(4) .doc_column(25) .last_column(80);
 
     if(!parse(argc, argv, cli)) {
-        cout << make_man_page(cli, "fastQTLmapping v1.9.1", fmt)
-        .prepend_section("DESCRIPTION", "    Fastest QTL mapping tool.")
+        cout << make_man_page(cli, "fastQTLmapping", fmt)
+        .prepend_section("DESCRIPTION", "    Fastest QTL mapping tool. Version 1.9.1")
         .append_section("LICENSE", "    GPL3") << '\n';
         return 0;
     }
