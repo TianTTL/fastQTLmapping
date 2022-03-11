@@ -920,6 +920,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // check PLooseMarg
+    if (PLooseMarg < 1) {
+        PLooseMarg = 1;
+    }
+
     // global starting time stamp 
     double time_start_whole = omp_get_wtime(), time_end_whole;
 
