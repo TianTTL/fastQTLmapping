@@ -132,7 +132,7 @@ double* inputCovar(string fileName,
                   uint32_t& covarNum, uint32_t sampleSize, 
                   vector<bool>& sampleFltSign, uint32_t covarNANum, 
                   vector<int32_t>& categFlag, uint32_t covarCategNum);
-void inputRplList(string rplFileName, vector<pair<uint64_t, uint64_t> >& rplList, 
+void inputRplList(string rplFileName, vector<pair<int64_t, int64_t> >& rplList, 
                   vector<string>& omics1Name, vector<string>& omics2Name, uint32_t threadMaxN);
 void cntrl(double* a, uint64_t omicsId, 
            uint32_t sampleSize, 

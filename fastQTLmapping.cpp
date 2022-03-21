@@ -517,7 +517,7 @@ double* inputCovar(string fileName,
 }
 
 template <class ForwardIterator, class T>
-uint64_t binarySearch(ForwardIterator head, ForwardIterator tail, const T& val) {
+int64_t binarySearch(ForwardIterator head, ForwardIterator tail, const T& val) {
     ForwardIterator it, headBak = head;
     typename std::iterator_traits<ForwardIterator>::difference_type count, step;
     count = distance(head, tail);
@@ -537,7 +537,7 @@ uint64_t binarySearch(ForwardIterator head, ForwardIterator tail, const T& val) 
     }
 }
 
-void inputRplList(string rplFileName, vector<pair<uint64_t, uint64_t> >& rplList, vector<string>& omics1Name, vector<string>& omics2Name, uint32_t threadMaxN) {
+void inputRplList(string rplFileName, vector<pair<int64_t, int64_t> >& rplList, vector<string>& omics1Name, vector<string>& omics2Name, uint32_t threadMaxN) {
     ifstream inputFile;
     string s;
     
@@ -574,7 +574,7 @@ void inputRplList(string rplFileName, vector<pair<uint64_t, uint64_t> >& rplList
 
 #       pragma omp parallel for schedule(static)
         for (uint64_t i = 0; i < rplFile.size(); i++) {
-            pair<uint64_t, uint64_t> oneItem;
+            pair<int64_t, int64_t> oneItem;
             oneItem.first = binarySearch(omics1NameSort.begin(), omics1NameSort.end(), rplFile[i].first);
             oneItem.second = binarySearch(omics2NameSort.begin(), omics2NameSort.end(), rplFile[i].second);
             if (oneItem.first >= 0 && oneItem.second >= 0) {
@@ -1090,7 +1090,7 @@ int main(int argc, char *argv[]) {
     vector<vector<uint32_t> > NASignMarkC(covarNum, vector<uint32_t>(0)); // NA mark for covarates. in fact it is empty
 
     // input replication list
-    vector<pair<uint64_t, uint64_t> > rplList;
+    vector<pair<int64_t, int64_t> > rplList;
     bool rplFlag = false;
     if (rplFileName != "NA") {
         inputRplList(rplFileName, rplList, omics1Name, omics2Name, threadMaxN);
@@ -1345,7 +1345,7 @@ int main(int argc, char *argv[]) {
             }
 
             for (uint32_t it = 0; it < distLvNum + 1; it++) { testCntCurr[it] = 0; }
-            uint64_t corrP = 0; double corrCurr; uint64_t j, k;
+            uint64_t corrP = 0; double corrCurr; int64_t j, k;
             for (uint64_t it = 0; it < pairAmt; it ++) {
                 if (rplFlag) {
                     j = rplList[i * blockSize + it].first;
