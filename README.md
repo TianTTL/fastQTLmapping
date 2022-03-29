@@ -36,6 +36,7 @@ If user does not enter any parameters, or if user enters invalid parameters, `fa
 | `[--threads <threadMaxN>]`            | Maximum number of parallelism. The default value is 1.       |
 | `[--omics1norm zscore\|rank]`         | Set the normalization method for the first omics data. `zscore` is Z-value normalization. `rank` is the rank-base normalization. The default is no normalization. |
 | `[--omics2norm zscore\|rank]`         | Set the normalization method for the second omics data. `zscore` is Z-value normalization. `rank` is the rank-base normalization. The default is no normalization. |
+| `[--rpl  <rplFileName>]`              | Set the path of replication list file. Replication list is a two columns text file separated by spaces, each row represents a locus-pair, and the two columns represent the locus id in the first and second omics respectively. If user sets this parameter, only locus-pairs in the replication list will be test. Note that the replication procedure usually uses a looser significance threshold. |
 
  
 
