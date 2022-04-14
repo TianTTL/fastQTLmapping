@@ -1322,9 +1322,17 @@ int main(int argc, char *argv[]) {
         uint64_t omics1BlockHead, omics2BlockHead, omics1BlockStrideCurr, omics2BlockStrideCurr;
         uint64_t pairAmt;
 
-        // alloc space for current result on each thread
-        vector<linearFitRlt> rltArr; rltArr.reserve(omics1BlockStride * omics2BlockStride / 4); // statistics results of significant variates pairs
-        double* corr; if (!rplFlag) { corr = (double*) mkl_malloc(sizeof(double) * omics1BlockStride * omics2BlockStride, 64); }
+        // alloc space for significant result on each thread
+        vector<linearFitRlt> rltArr; 
+        if (rplFlag) {
+            rltArr.reserve(blockSize / 2);
+        } else { 
+            rltArr.reserve(omics1BlockStride * omics2BlockStride / 4);
+        }
+        
+        double* corr; 
+        if (!rplFlag) { corr = (double*) mkl_malloc(sizeof(double) * omics1BlockStride * omics2BlockStride, 64); }
+        
         vector<uint64_t> testCntCurr(distLvNum + 1);
 
 #       pragma omp for schedule(dynamic)
