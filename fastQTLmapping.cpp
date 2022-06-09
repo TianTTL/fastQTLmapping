@@ -210,19 +210,19 @@ void getBfileSNPid(string bfileNameRoot, uint64_t num_snps,
     for (uint32_t i = 0; i < num_snps; i++) {
         getline(inputFile, s);
         istringstream is(s);
-        
+
         is >> oneItem; // CHR
         try {
             omicsCHR[i] = stoi(oneItem);
         } catch (std::invalid_argument) {
             omicsCHR[i] = -1;
         }
-        
+
         is >> oneItem; // SNP
         omicsName[i] = oneItem;
-        
+
         is >> oneItem; // CM
-        
+
         is >> oneItem; // BP
         try {
             omicsBP[i] = stol(oneItem);
@@ -240,7 +240,7 @@ void calcInputSize(string omicsFileName, uint32_t &sampleSize, uint64_t& omicsNu
 
     inputFile.open(omicsFileName);
     assert(inputFile.is_open());
-    
+
     getline(inputFile, s);
     istringstream is(s);
     while (is >> oneItem) {
@@ -277,7 +277,7 @@ void input2DfloatParse(double* omicsData, string fileName, vector<vector<uint32_
         pos = one_line.find_first_of(delimiter, lastPos);
         oneItem = one_line.substr(lastPos, pos - lastPos); // SNP
         omicsName[i] = oneItem;
-        
+
         lastPos = one_line.find_first_not_of(delimiter, pos);
         pos = one_line.find_first_of(delimiter, lastPos);
         oneItem = one_line.substr(lastPos, pos - lastPos); // CHR
@@ -286,7 +286,7 @@ void input2DfloatParse(double* omicsData, string fileName, vector<vector<uint32_
         } catch (std::invalid_argument) {
             omicsCHR[i] = -1;
         }
-        
+
         lastPos = one_line.find_first_not_of(delimiter, pos);
         pos = one_line.find_first_of(delimiter, lastPos);
         oneItem = one_line.substr(lastPos, pos - lastPos); // BP
@@ -322,7 +322,7 @@ void input2DfloatParse(double* omicsData, string fileName, vector<vector<uint32_
                 if (!sampleFltSign[j]) {
                     omicsData[rowHeadPos + sid] = 0.0;  // and set NA value to 0.0
                     NASignMark[i].push_back(sid);
-                    sid++;    
+                    sid++;
                 }
                 s_p += NASign.length();
             } else if (s[s_p] == '-' || s[s_p] >= '0' && s[s_p] <= '9') {
@@ -506,7 +506,7 @@ double* inputCovar(string fileName,
             }
             lastCovData++;
         }
-        
+
         s.clear(); is.str(""); is.clear();
     }
     inputFile.close();
@@ -540,7 +540,7 @@ int64_t binarySearch(ForwardIterator head, ForwardIterator tail, const T& val) {
 void inputRplList(string rplFileName, vector<pair<int64_t, int64_t> >& rplList, vector<string>& omics1Name, vector<string>& omics2Name, uint32_t threadMaxN) {
     ifstream inputFile;
     string s;
-    
+
     // input rplFile
     vector<pair<string, string> > rplFile;
     inputFile.open(rplFileName);
@@ -655,12 +655,12 @@ void cntrlQuant(double *omicsData, uint64_t omicsId, uint32_t sampleSize,
 
     // rank
     v_rank = rankSort(v_temp, sampleSize);
-    
+
     // normalization
     for (uint32_t i = 0; i < sampleSize; i++) {
         omicsData[rowHeadPos + i] = double(gsl_cdf_ugaussian_Pinv((v_rank[i] + 0.5) / sampleSizeTmp)); // caution: v_rank start from 0!
     }
-    
+
     // fill the missing value
     for (auto i : NASignMarkCurr[omicsId]) {
         omicsData[rowHeadPos + i] = 0;
@@ -764,7 +764,7 @@ linearFitRlt linearFit(double corr,
         A[0] = sampleSizeCurr;
         A[1] = omics1Sum[omics1Id];
         A[1 + (covarNum + 2)] = omics1Sqr[omics1Id];
-        B[0] = omics2Sum[omics2Id];        
+        B[0] = omics2Sum[omics2Id];
         B[1] = cblas_ddot(sampleSize, omics1DataCurr, 1, omics2DataCurr, 1); // do not need to remove NA
         for (uint32_t i = 0; i < covarNum; i++) {
             A[2 + i] = covarSum[i];
@@ -974,7 +974,7 @@ int main(int argc, char *argv[]) {
 
     // Specifies the global number of threads for MKL
     mkl_set_num_threads(1);
-    
+
     // calculate bfile size
     if (bfileFlag) { // input plink bfile as first omics
         calcBfileSize(omics1FileName, sampleSize, omics1Num);
@@ -1038,7 +1038,7 @@ int main(int argc, char *argv[]) {
     outputFile.open(outputFileName);
     outputFile << "omics1\t" << "omics2\t" << "BETA\t" << "SE\t" << "T\t" << "P\t" << "NMISS\t" << "distance_level\n";
     outputFile.close();
-    
+
     // input omics1 data
     double* omics1Data = (double*) mkl_malloc(sizeof(double) * omics1Num * sampleSize, 64);
     vector<vector<uint32_t> > NASignMark1(omics1Num, vector<uint32_t>(0)); // NA mark for first omics, N.O1 * NAs
@@ -1047,7 +1047,7 @@ int main(int argc, char *argv[]) {
     vector<int64_t> omics1BP(omics1Num); // BP number for first omics
     if (bfileFlag) { // input plink bfile as first omics
         getBfileSNPid(omics1FileName, omics1Num, omics1Name, omics1CHR, omics1BP);
-        snplib::UnpackGeno(omics1FileName, omics1Data, NASignMark1, sampleSize, omics1Num, sampleFltSign, covarNANum, omics2FileName);        
+        snplib::UnpackGeno(omics1FileName, omics1Data, NASignMark1, sampleSize, omics1Num, sampleFltSign, covarNANum, omics2FileName);
     } else {
         string* dataArea = new string[omics1Num];
         input2DfloatParse(omics1Data, omics1FileName, NASignMark1, NASign, 
@@ -1057,7 +1057,7 @@ int main(int argc, char *argv[]) {
                           sampleFltSign, covarNANum);
         delete [] dataArea;
     }
-    
+
     // time stamp for input omics1
     time_end_whole = omp_get_wtime();
     outputLogFile << "First omics data has been input, time used: " << time_end_whole - time_start_whole << " s" << endl;
@@ -1078,7 +1078,7 @@ int main(int argc, char *argv[]) {
     // time stamp for input omics2
     time_end_whole = omp_get_wtime();
     outputLogFile << "Second omics data has been input, time used: " << time_end_whole - time_start_whole << " s" << endl;
-    
+
     // input covariates data
     double* covarData;
     if (covarNum > 0) {
@@ -1113,7 +1113,7 @@ int main(int argc, char *argv[]) {
     for (uint64_t i = 0; i < omics1Num; i++) {
         cntrl(omics1Data, i, sampleSize, omics1RowSDCntrl1, NASignMark1);
     }
-    
+
     // first centralization of trait data
     vector<double> omics2RowSDCntrl1(omics2Num, 1);
 #   pragma omp parallel for \
@@ -1125,7 +1125,7 @@ int main(int argc, char *argv[]) {
     for (uint64_t i = 0; i < omics2Num; i++) {
         cntrl(omics2Data, i, sampleSize, omics2RowSDCntrl1, NASignMark2);
     }
-    
+
     // generate orthogonal omics data and intermediate variables
     double* omics1DataOrtg = (double*) mkl_malloc(sizeof(double) * omics1Num * sampleSize, 64); 
     memcpy(omics1DataOrtg, omics1Data, sizeof(double) * omics1Num * sampleSize);
@@ -1149,12 +1149,12 @@ int main(int argc, char *argv[]) {
         for (uint64_t i = 0; i < covarNum; i++)
             for (uint64_t j = 0; j < sampleSize; j++)
                 covarDataT[j * covarNum + i] = covarData[i * sampleSize + j];
-        
+
         // QR decompose
         double *tau = new double[covarNum];
         LAPACKE_dgeqrf(LAPACK_ROW_MAJOR, sampleSize, covarNum, covarDataT, covarNum, tau);
         LAPACKE_dorgqr(LAPACK_ROW_MAJOR, sampleSize, covarNum, covarNum, covarDataT, covarNum, tau);
-        
+
         // projection
         double* covarNormSqr = (double*) mkl_malloc(sizeof(double) * sampleSize * sampleSize, 64);
         mkl_set_num_threads_local(threadMaxN); // Specifies the number of threads for MKL
@@ -1184,6 +1184,7 @@ int main(int argc, char *argv[]) {
             cntrlQuant(omics1Data, i, sampleSize, NASignMark1);
         }
     }
+
 #   pragma omp parallel for \
     num_threads(threadMaxN) \
     shared(omics2Num, omics2Data, sampleSize, omics2RowSDCntrl2, NASignMark2)
@@ -1207,6 +1208,7 @@ int main(int argc, char *argv[]) {
             cntrlQuant(omics1DataOrtg, i, sampleSize, NASignMark1);
         }
     }
+
 #   pragma omp parallel for \
     num_threads(threadMaxN) \
     shared(omics2Num, omics2DataOrtg, sampleSize, omics2RowSDCntrl2, NASignMark2)
@@ -1217,6 +1219,7 @@ int main(int argc, char *argv[]) {
             cntrlQuant(omics2DataOrtg, i, sampleSize, NASignMark2);
         }
     }
+
     // Scalings of beta coefficents for orthognal omics data
     // if user do not need to centralize the variates, we should restore the coeffecient to the original scale
     vector<double> omics1Scaling(omics1Num, 1);
@@ -1225,13 +1228,23 @@ int main(int argc, char *argv[]) {
             omics1Scaling[i] = omics1RowSDCntrl1[i] * omics1RowSDCntrl2[i];
         }
     }
+
     vector<double> omics2Scaling(omics2Num, 1);
     if (omics2NormMod == 0) {
         for (uint64_t i = 0; i < omics2Num; i++) {
             omics2Scaling[i] = omics2RowSDCntrl1[i] * omics2RowSDCntrl2[i];
         }
     }
-    
+
+    // convert omics1DataOrtg to single precision
+    float *sp; double *dp; uint64_t omicsNum;
+    float* omics1DataOrtgSP = (float*) mkl_malloc(sizeof(float) * omics1Num * sampleSize, 64);
+    sp = omics1DataOrtgSP; dp = omics1DataOrtg; omicsNum = omics1Num * sampleSize;
+    while (omicsNum--) *sp++ = *dp++;
+    float* omics2DataOrtgSP = (float*) mkl_malloc(sizeof(float) * omics2Num * sampleSize, 64);
+    sp = omics2DataOrtgSP; dp = omics2DataOrtg; omicsNum = omics2Num * sampleSize;
+    while (omicsNum--) *sp++ = *dp++;
+
     // preprocess for linear model solver
     vector<double> omics1Sum(omics1Num, 0);
     vector<double> omics1Sqr(omics1Num);
@@ -1249,6 +1262,9 @@ int main(int argc, char *argv[]) {
             omics2Sum[i] += omics2Data[j];
         }
     }
+
+    // free intermediate variables
+    mkl_free(omics1DataOrtg); mkl_free(omics2DataOrtg);
 
     vector<double> covarSum(covarNum, 0);
     vector<vector<double> > omics1DotCov;
@@ -1304,7 +1320,7 @@ int main(int argc, char *argv[]) {
     shared(omics1Name, omics2Name, \
            omics1CHR, omics2CHR, omics1BP, omics2BP, \
            omics1Num, omics2Num, covarNum, sampleSize, missingRateThd, \
-           omics1DataOrtg, omics2DataOrtg, \
+           omics1DataOrtgSP, omics2DataOrtgSP, \
            omics1BlockStride, omics2BlockStride, \
            distLv, distLvP, distLvNum, \
            rCriticalValue, \
@@ -1329,10 +1345,10 @@ int main(int argc, char *argv[]) {
         } else { 
             rltArr.reserve(omics1BlockStride * omics2BlockStride / 4);
         }
-        
-        double* corr; 
-        if (!rplFlag) { corr = (double*) mkl_malloc(sizeof(double) * omics1BlockStride * omics2BlockStride, 64); }
-        
+
+        float* corr; 
+        if (!rplFlag) { corr = (float*) mkl_malloc(sizeof(float) * omics1BlockStride * omics2BlockStride, 64); }
+
         vector<uint64_t> testCntCurr(distLvNum + 1);
 
 #       pragma omp for schedule(dynamic)
@@ -1346,20 +1362,20 @@ int main(int argc, char *argv[]) {
                 omics2BlockStrideCurr = min(omics2BlockStride, omics2Num - omics2BlockHead);
                 pairAmt = omics1BlockStrideCurr * omics2BlockStrideCurr;
 
-                cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
+                cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
                             omics1BlockStrideCurr, omics2BlockStrideCurr, sampleSize, 
-                            1, &omics1DataOrtg[omics1BlockHead * sampleSize], sampleSize, &omics2DataOrtg[omics2BlockHead * sampleSize], sampleSize, 
+                            1, &omics1DataOrtgSP[omics1BlockHead * sampleSize], sampleSize, &omics2DataOrtgSP[omics2BlockHead * sampleSize], sampleSize, 
                             0, corr, min(omics2BlockStride, omics2Num - omics2BlockHead));
             }
 
             for (uint32_t it = 0; it < distLvNum + 1; it++) { testCntCurr[it] = 0; }
-            uint64_t corrP = 0; double corrCurr; int64_t j, k;
+            uint64_t corrP = 0; float corrCurr; int64_t j, k;
             for (uint64_t it = 0; it < pairAmt; it ++) {
                 if (rplFlag) {
                     j = rplList[i * blockSize + it].first;
                     k = rplList[i * blockSize + it].second;
                     if (j < 0 || k < 0) { continue; }
-                    corrCurr = cblas_ddot(sampleSize, &omics1DataOrtg[j * sampleSize], 1, &omics2DataOrtg[k * sampleSize], 1);
+                    corrCurr = cblas_sdot(sampleSize, &omics1DataOrtgSP[j * sampleSize], 1, &omics2DataOrtgSP[k * sampleSize], 1);
                 } else {
                     j = it / omics2BlockStrideCurr + omics1BlockHead;
                     k = it % omics2BlockStrideCurr + omics2BlockHead;
@@ -1401,7 +1417,7 @@ int main(int argc, char *argv[]) {
                     if (rltTmp.p <= distLvP[levelCurr] && rltTmp.status == 0) {
                         rltArr.push_back(rltTmp);
                     }
-                }                
+                }
             }
 
             // P< P1, maker BETA SE T P
@@ -1428,7 +1444,7 @@ int main(int argc, char *argv[]) {
 
             double time_end = omp_get_wtime();
             outputLogFile << i + 1 << " / " << blockNum << " block has finished, time used: " << time_end - time_start_whole << " s" << endl;
-            
+
             // clear elements in vectors
             rltArr.clear();
         }
@@ -1448,7 +1464,7 @@ int main(int argc, char *argv[]) {
 
     mkl_free(omics1Data); mkl_free(omics2Data);
     if (covarNum > 0) {
-        mkl_free(omics1DataOrtg); mkl_free(omics2DataOrtg);
+        mkl_free(omics1DataOrtgSP); mkl_free(omics2DataOrtgSP);
     }
 
     return 0;

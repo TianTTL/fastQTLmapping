@@ -1,6 +1,8 @@
 CC = g++
-GSLROOT = /thinker/storage/org/liufanGroup/public_lib/gsl-2.6
-MKLROOT = /thinker/storage/org/liufanGroup/public_software/intel/oneapi/mkl/2021.3.0
+
+#PLEASE specify the GSL and MKL path here 
+GSLROOT = /usr/local/include/gsl
+MKLROOT = /opt/intel/mkl
 
 HOSTFILES := fastQTLmapping.cpp
 OBJS := fastQTLmapping.o
