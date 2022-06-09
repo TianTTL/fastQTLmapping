@@ -102,7 +102,7 @@ To make the method more robust to outliers in omics data, fastQTLmapping has an 
 
 FastQTLmapping provides two normalization methods, Z-value normalization(`zscore`) and rank-based normalization(`rank`). The user can specify the normalization method for each omics separately by parameters `--omics1norm` and `--omics2norm`.
 
-**Covariates correction**
+**Covariates adjustment**
 
 FastQTLmapping reduces the covariates of the regression model by orthogonalizing $x$ and $y$ respect to $C$ using Gram-Schmidt orthogonalization.([Longley J W, Longley R D, 1997](https://onlinelibrary.wiley.com/doi/abs/10.1002/(SICI)1099-1506(199707/08)4:4%3C295::AID-NLA102%3E3.0.CO;2-D)).
 
