@@ -1,22 +1,18 @@
 # fastQTLmapping
 
-`FastQTLmapping` is a computationally efficient, exact, and generic solver for exhaustive multiple regression analysis involving extraordinarily large numbers of dependent and explanatory variables with covariates, which is particularly helpful in QTL-like analysis. `FastQTLmapping` can afford omics data containing tens of thousands of individuals and billions of molecular locus.
-
-
+FastQTLmappingis a computationally efficient, exact, and generic solver for exhaustive multiple regression analysis involving extraordinarily large numbers of dependent and explanatory variables with covariates, which is particularly helpful in QTL-like analysis. FastQTLmapping can afford omics data containing tens of thousands of individuals and billions of molecular locus.
 
 ## Operating Environment
 
 Software environment: x64 processor-based, 64-bit operating system, Linux v3.10.0 and above.
 
-Programming language: C++.
+Programming language: C++
 
-Library: MKL 2019.0 or above 
+Library: MKL (>= 2019.0)
 
-              GSL v2.6 or above
+              GSL (>= v2.6)
 
-              OpenMP.
-
-
+              OpenMP
 
 ## Installation
 
@@ -50,7 +46,6 @@ fastQTLmapping --omics1 <omics1FileName> [bfile] --omics2 <omics2FileName>
                    <missingRateThd>] [--dl <distLv>...] [--dlp <distLvP>...]
                    [--threads <threadMaxN>] [--omics1norm (zscore|rank)]
                    [--omics2norm (zscore|rank)] [--rpl <rplFileName>]
-Name>]
 ```
 
 **Parameter list**
@@ -75,13 +70,13 @@ Name>]
 
 ## Input
 
-### omics data
+### Omics data
 
 Omics data is a space- or tab-delimited matrix without table headers. Each row represents a molecular loci, the first three columns record the locus ID, the chromosome and the bp, and subsequent columns record the quantitative molecular-level in each individuals.  Missing values need to be marked by a unique string.
 
 In particular, when the first omics data represents genomic, the [Plink Binary File](http://www.cog-genomics.org/plink/1.9/formats#bed) can be used as input data.
 
-### covariate data
+### Covariate data
 
 It is common to include covariates in an eQTL model to account for such effects as population stratiﬁcation, gender, age, white blood count and other clinical variables.
 
@@ -131,7 +126,7 @@ The user can divide the locus-pairs into a series of distance levels by setting 
 
 The user can specify the significance threshold for each distance level by setting the parameter `--dlp`. The significance threshold for the (m+1)st level is `globalP`. If not set, all distance levels are set to the same significant threshold of `globalP`.
 
-## example
+## Example
 
 ```bash
 fastQTLmapping \
