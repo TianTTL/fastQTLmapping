@@ -1380,10 +1380,10 @@ int discModeProc() {
     // estimating peak memory
     uint64_t memCons = 
     max(
-        (omics1ChunkStrideAllc + omics2ChunkStrideAllc) * sampleSize * (sizeof(float) * 5) + // omics data and orthgnal data
+        (omics1ChunkStrideAllc + omics2ChunkStrideAllc) * sampleSize * (sizeof(float) * 2) + // omics data and orthgnal data
         omics1ChunkStrideAllc * omics2ChunkStrideAllc * sizeof(float) + // gemm
         omics1ChunkStrideAllc * omics2ChunkStrideAllc * globalP * PLooseMarg * 9.25 * sizeof(uint32_t), // tmp results
-        omics1Num * omics2Num * globalP * 6.25 * sizeof(uint32_t) // all result of P and Q and level
+        omics1Num * omics2Num * globalP * 4.25 * sizeof(uint32_t) // all result of P and Q and level
     );
     if (memCons < 1024 * 1024 * 1024) {
         oss << "fastQTLmapping requires less than 1 GB RAM to complete the current task.\n\n"; dualOutput(oss, outputLogFile, std::cout);
