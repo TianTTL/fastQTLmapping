@@ -934,8 +934,8 @@ int main(int argc, char *argv[]) {
         option("--cov") & value("covarFileName", covarFileName)               % "covariates file path",
         option("--categ") & integers("categFlag", categFlag)  % "flag indicate categorical covariates",
         option("--na") & value("NASign", NASign)                             % "sign of missing value",
-        option("--MR") & number("msRtThd", msRtThd)               % "missing rate threshold",
-        option("--SD") & number("sdThd", sdThd)       % "standard deviation threshold",
+        option("--MR") & number("msRtThd", msRtThd)                         % "missing rate threshold",
+        option("--SD") & number("sdThd", sdThd)                       % "standard deviation threshold",
         option("--dl") & numbers("distLv", distLv)     % "distance thresholds for each distance level",
         option("--dlp") & numbers("distLvP", distLvP)   % "P-value thresholds for each distance level",
         option("--omics1norm")                                 % "normalization model for omics1 data"
@@ -951,8 +951,8 @@ int main(int argc, char *argv[]) {
         option("--cov") & value("covarFileName", covarFileName)               % "covariates file path",
         option("--categ") & integers("categFlag", categFlag)  % "flag indicate categorical covariates",
         option("--na") & value("NASign", NASign)                             % "sign of missing value",
-        option("--MR") & number("msRtThd", msRtThd)               % "missing rate threshold",
-        option("--SD") & number("sdThd", sdThd)       % "standard deviation threshold",
+        option("--MR") & number("msRtThd", msRtThd)                         % "missing rate threshold",
+        option("--SD") & number("sdThd", sdThd)                       % "standard deviation threshold",
         option("--dl") & numbers("distLv", distLv)     % "distance thresholds for each distance level",
         option("--omics1norm")                                 % "normalization model for omics1 data"
             & (required("zscore").set(omics1NormMod, 1)
@@ -975,7 +975,7 @@ int main(int argc, char *argv[]) {
             cout << endl << "Error: Unknown option." << endl << endl;    
         }
         cout << make_man_page(cli, "fastQTLmapping", fmt)
-        .prepend_section("DESCRIPTION", "    Fastest QTL mapping tool. Version " + VERSION)
+        .prepend_section("DESCRIPTION", "    Fastest QTL mapping tool. Version " + VERSION + ". For more information, please visit https://github.com/TianTTL/fastQTLmapping .")
         .append_section("LICENSE", "    GPL3") << '\n';
         return 0;
     }
@@ -1080,6 +1080,17 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // check msRtThd and sdThd
+    if (msRtThd < 0 || msRtThd > 1) {
+        oss << "Error: Missing rate threshold should in [0, 1].\n"; dualOutput(oss, outputLogFile, std::cout);
+        return 5;
+    }
+    if (sdThd < 0) {
+        oss << "Error: Standard deviation threshold should >= 0.\n"; dualOutput(oss, outputLogFile, std::cout);
+        return 5;
+    }
+
+
     int FQMstat;
     if (modeFlag == 1) {
         FQMstat = cntModeProc();
@@ -1108,7 +1119,7 @@ int cntModeProc() {
     if (bfileFlag2) {
         oss << "  omics 2 is in PLINK binary format\n";
     }
-    oss << "output file : " << outputFileName << endl;
+    oss << "output file : " << outputFileName << ".cnt" << endl;
     oss << "maximun parallel number : " << threadMaxN << endl; dualOutput(oss, outputLogFile, std::cout);
 
     // calculate input file size

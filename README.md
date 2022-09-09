@@ -1,6 +1,22 @@
 # fastQTLmapping
 
-FastQTLmappingis a computationally efficient, exact, and generic solver for exhaustive multiple regression analysis involving extraordinarily large numbers of dependent and explanatory variables with covariates, which is particularly helpful in QTL-like analysis. FastQTLmapping can afford omics data containing tens of thousands of individuals and billions of molecular locus.
+FastQTLmapping is a computationally efficient, exact, and generic solver for exhaustive multiple regression analysis involving extraordinarily large numbers of dependent and explanatory variables with covariates, which is particularly helpful in QTL-like analysis. FastQTLmapping can afford omics data containing tens of thousands of individuals and billions of molecular loci.
+
+## Counting Mode
+
+In counting mode, fastQTLmapping will count the number of loci-pairs in each distance level and calculate the significant threshold that controls FWER using bonferroni method. The distance level threshold and FWER(Family-Wise Error Rate) are user specified.
+
+Counting mode is computationally fast and is usually performed before discovery mode.  This process can help users evaluate computational scale and estimate significance thresholds for studies.
+
+## Discovery Mode
+
+In discovery mode, fastQTLmapping exhaustively test correlations between quantitative molecular-level  of loci from two omics, respectively, by using linear regression models.
+
+Taking eQTL analysis as an example, for each gene-SNP pair, the association between gene expression $y$ and genotype $x$ is assumed to be linear under covariable matrix $C$: 
+
+$y=\alpha + \beta x + \gamma C + \epsilon, \epsilon \sim i.i.d. N(0, \sigma ^2)$
+
+FastQTLmapping accepts input files in text format and in Plink binary format. The output file is in text format and contains test statistics of regression test across all loci-pairs, with the ability to control the volume of the output at preset significance thresholds.
 
 ## Operating Environment
 
@@ -28,55 +44,69 @@ Library: MKL (>= 2019.0)
 
 ## Running fastQTLmapping
 
-
-
-FastQTLmapping exhaustively test correlations between quantitative molecular-level  of locus from two omics, respectively, by using linear regression models.
-
-Taking eQTL analysis as an example, for each gene-SNP pair, the association between gene expression $y$ and genotype $x$ is assumed to be linear under covariable matrix $C$: 
-
-$y=\alpha + \beta x + \gamma C + \epsilon, \epsilon \sim i.i.d. N(0, \sigma ^2)$
-
-FastQTLmapping accepts input files in text format and in Plink binary format. The output file is in text format and contains test statistics of regression test across all locus-pairs, with the ability to control the volume of the output at preset significance thresholds.
-
 ```bash
 fastQTLmapping --omics1 <omics1FileName> [bfile] --omics2 <omics2FileName>
-                   --out <outputFileName> [--outPcs <outPcs>] [-p <globalP>]
-                   [--ploose <PLooseMarg>] [--cov <covarFileName>] [--categ
-                   <categFlag>...] [--na <NASign>] [--missing-rate
-                   <missingRateThd>] [--dl <distLv>...] [--dlp <distLvP>...]
-                   [--threads <threadMaxN>] [--omics1norm (zscore|rank)]
-                   [--omics2norm (zscore|rank)] [--rpl <rplFileName>]
+               [bfile] --out <outputFileName> [--outPcs <outPcs>] [--threads
+               <threadMaxN>] [--chunk <chunkSize>] [-h] count [--dl
+               <distLv>...] [--FWER <FWER>]
+
+fastQTLmapping --omics1 <omics1FileName> [bfile] --omics2 <omics2FileName>
+               [bfile] --out <outputFileName> [--outPcs <outPcs>] [--threads
+               <threadMaxN>] [--chunk <chunkSize>] [-h] discovery [-p
+               <globalP>] [--ploose <PLooseMarg>] [--cov <covarFileName>]
+               [--categ <categFlag>...] [--na <NASign>] [--MR <msRtThd>]
+               [--SD <sdThd>] [--dl <distLv>...] [--dlp <distLvP>...]
+               [--omics1norm (zscore|rank)] [--omics2norm (zscore|rank)]
 ```
 
-**Parameter list**
+**Mode-independent Parameter List**
 
-| Interface                             | Description                                                                                                                                                                                                                                                |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--omics1 <omics1FileName> ['bfile']` | The first omics data file path. If there is a parameter `bfile`, it means that the first omics data is genomic data in [Plink Binary File](http://www.cog-genomics.org/plink/1.9/formats#bed); in this case only the file path without extension is given. |
-| `--omics2 <omics2FileName>`           | The second omics data file path.                                                                                                                                                                                                                           |
-| `--out <outputFileName>`              | Output file path.                                                                                                                                                                                                                                          |
-| `[--outPcs <outPcs>]`                 | The number of significant digits.                                                                                                                                                                                                                          |
-| `[-p <globalP>`]                      | Global significance threshold. By default the significance threshold is corrected by Bonferroni correction.                                                                                                                                                |
-| `[--cov <covarFileName>]`             | Covariate file path. By default there is no covariate correction.                                                                                                                                                                                          |
-| `[--categ <categFlag>]`               | A series of integer indicate which rows of covariates are categorical, starting from 1.                                                                                                                                                                    |
-| `[--na <NASign>]`                     | A string identifying the missing value. The default is `NA`.                                                                                                                                                                                               |
-| `[--missing-rate <missingRateThd>]`   | Missing rate threshold of concatenated dependent and explanatory variables. The default value is 10%. Locus-pairs above this threshold will be filtered out.                                                                                               |
-| `[--dl <distLv> ...]`                 | A series of increasing numbers used to divide locus-pairs into different distance levels based on physical distance.                                                                                                                                       |
-| `[--dlp <distLvP> ...]`               | A series of numbers indicate the significance thresholds for the 1st to mth distance levels, which need to be the same length as `distLv`.                                                                                                                 |
-| `[--threads <threadMaxN>]`            | Maximum number of parallelism. The default value is 1.                                                                                                                                                                                                     |
-| `[--omics1norm zscore\|rank]`         | Set the normalization method for the first omics data. `zscore` is Z-value normalization. `rank` is the rank-base normalization. The default is no normalization.                                                                                          |
-| `[--omics2norm zscore\|rank]`         | Set the normalization method for the second omics data. `zscore` is Z-value normalization. `rank` is the rank-base normalization. The default is no normalization.                                                                                         |
-| `[--rpl  <rplFileName>]`              | Set the path of replication list file.                                                                                                                                                                                                                     |
+| Interface                           | Description                                                  |
+| ----------------------------------- | ------------------------------------------------------------ |
+| `--omics1 <omics1FileName> [bfile]` | The first omics data file path. The `bfile` flag indicates that the input file is genomic data in [Plink Binary File](http://www.cog-genomics.org/plink/1.9/formats#bed) format. |
+| `--omics2 <omics2FileName> [bfile]` | The second omics data file path. The `bfile` flag indicates that the input file is genomic data in [Plink Binary File](http://www.cog-genomics.org/plink/1.9/formats#bed) format. |
+| `--out <outputFileName>`            | Output file path.                                            |
+| `[--outPcs <outPcs>]`               | The number of significant digits. The default value is 4.    |
+| `[--threads <threadMaxN>]`          | Maximum number of parallelism. The default value is 1.       |
+| `[--chunk <chunkSize>]`             | The size of chunks that divides the computational load. Users can reduce the memory usage by reducing this parameter. The default value is 5000. |
+| `[-h], [--help]`                    | Show manuscript.                                             |
+
+**Counting Mode Parameter List**
+
+| Interface            | Description                                                  |
+| -------------------- | ------------------------------------------------------------ |
+| `count`              | Counting mode command.                                       |
+| `[--dl <distLv>...]` | A series of increasing numbers used to divide loci-pairs into different distance levels based on physical distance. The default setting is NULL. |
+| `[--FWER <FWER>]`    | Family-wise error rate that expected by user. The default value is 0.05. |
+
+**Discovery Mode Parameter List**
+
+| Interface                     | Description                                                  |
+| ----------------------------- | ------------------------------------------------------------ |
+| `discovery`                   | Discovery mode command.                                      |
+| `[-p <globalP>`]              | Global significance threshold. The default value is 1, which means keep all results. Note that the results of QTL mapping study usually result in huge volume, and this parameter can be used to reduce the size of the results significantly. |
+| `[--ploose <PLooseMarg>]`     | Margin for calculating loosed significance thresholds. The default value is 100. |
+| `[--cov <covarFileName>]`     | Covariate file path. The default setting is NULL.            |
+| `[--categ <categFlag>]`       | A series of integer indicate which rows of covariates are categorical, starting from 1. |
+| `[--na <NASign>]`             | A string identifying the missing value. The default is `NA`. |
+| `[--MR <missingRateThd>]`     | Missing rate threshold of concatenated dependent and explanatory variables. Loci-pairs above this threshold will be filtered out. The default value is 0.1. |
+| `[--SD <sdThd>]`              | Standard deviation threshold of quantitative loci. Loci with a standard deviation below `sdThd` will be considered constant and filtered out. The default value is 1e-6. |
+| `[--dl <distLv> ...]`         | A series of increasing numbers used to divide loci-pairs into different distance levels based on physical distance.  The default setting is NULL. |
+| `[--dlp <distLvP> ...]`       | A series of numbers indicate the significance thresholds for the 1*st* to m*th* distance levels, which need to be the same length as `distLv`.  The default setting is NULL. |
+| `[--omics1norm zscore\|rank]` | Set the normalization method for the first omics data. `zscore` is Z-value normalization. `rank` is rank-base normalization. If not set, no normalization will be done. The default is no normalization. |
+| `[--omics2norm zscore\|rank]` | Set the normalization method for the second omics data. `zscore` is Z-value normalization. `rank` is rank-base normalization. If not set, no normalization will be done. The default is no normalization. |
 
 ## Input
 
-### Omics data
+### Omics Data
 
-Omics data is a space- or tab-delimited matrix without table headers. Each row represents a molecular loci, the first three columns record the locus ID, the chromosome and the bp, and subsequent columns record the quantitative molecular-level in each individuals.  Missing values need to be marked by a unique string.
+FastQTLmapping accepts two widely used data formats.
 
-In particular, when the first omics data represents genomic, the [Plink Binary File](http://www.cog-genomics.org/plink/1.9/formats#bed) can be used as input data.
+For quantitative omics data, input file is a space- or tab-delimited matrix without table headers. Each row represents a molecular loci. The first three columns record the loci ID, the chromosome and the BP, and subsequent columns record the quantitative molecular-level in each individuals.  Missing values need to be marked by a unique string that specified by `NASign`.
 
-### Covariate data
+For genomics data in [Plink Binary File](http://www.cog-genomics.org/plink/1.9/formats#bed) format, use `bfile` flag to make fastQTLmapping input binary file set: `omics1FileName.bed`+`omics1FileName.bim`+`omics1FileName.fam`.
+
+### Covariate Data
 
 It is common to include covariates in an eQTL model to account for such effects as population stratiﬁcation, gender, age, white blood count and other clinical variables.
 
@@ -86,15 +116,41 @@ The individual order of the omics data and the covariate data must be consistent
 
 ## Output
 
-If the fastQTLmapping runs normally, two files are output: the `outputFileName.log` file for the log file and the `outputFileName` file for the result file.
+If the fastQTLmapping runs normally, two files are output: the `outputFileName.log` file for the log file, the `outputFileName.cnt` file for counting mode results and the `outputFileName` file for discovery mode results.
 
-Each line of the `outputFileName` file records the statistics of regression analysis, including the IDs of the locus(`omics1` `omics2`), estimated coefficients(`BETA`), standard errors(`SE`), t-statistics(`T`), significance levels(`P`), degrees of freedom(`NMISS`), and distance level(`distance_level`).
+Each line of the `outputFileName` file records the statistics of regression analysis, including the IDs of the loci(`omics1` `omics2`), number of samples without missing (`NMISS`), distance level(`distance_level`), estimated coefficients(`BETA`), standard errors(`SE`), t-statistics(`T`), significance levels(`P-value`) and Q-value(`Q-value`). 
 
-## List of features
+The output file retains `outPcs` significant digits.
+
+## Example
+
+```bash
+# counting mode
+fastQTLmapping \
+ --omics1 testdata/test.omics1.data \
+ --omics2 testdata/test.omics2.data \
+ --out testdata/test.rlt \
+ count \
+ --dl 1000000 2000000 --FWER 0.01
+
+# discovery mode
+fastQTLmapping \
+ --omics1 testdata/test.omics1.data \
+ --omics2 testdata/test.omics2.data \
+ --out testdata/test.rlt \
+ --threads 1 \
+ discovery \
+ --cov testdata/test.covar.data \
+ --na NA --MR 0.1 \
+ --dl 1000000 2000000 --dlp 1 0.9 -p 0.8 \ 
+ --omics1norm zscore --omics2norm rank
+```
+
+## List of Features
 
 **Manuscript**
 
-If the user does not enter any parameters, or if the user enters invalid parameters, `fastQTLmapping` will print the help file on the screen.
+If the user enter `-h, --help` parameters or invalid parameters, `fastQTLmapping` will print a brief help file on the screen.
 
 **Normalization**
 
@@ -102,51 +158,35 @@ To make the method more robust to outliers in omics data, fastQTLmapping has an 
 
 FastQTLmapping provides two normalization methods, Z-value normalization(`zscore`) and rank-based normalization(`rank`). The user can specify the normalization method for each omics separately by parameters `--omics1norm` and `--omics2norm`.
 
-**Covariates adjustment**
+**Covariates Adjustment**
 
 FastQTLmapping reduces the covariates of the regression model by orthogonalizing $x$ and $y$ respect to $C$ using Gram-Schmidt orthogonalization.([Longley J W, Longley R D, 1997](https://onlinelibrary.wiley.com/doi/abs/10.1002/(SICI)1099-1506(199707/08)4:4%3C295::AID-NLA102%3E3.0.CO;2-D)).
 
 Categorical covariates are converted into dummy variables in the data pre-processing. Dummy Variables act as indicators of the presence or absence of a category in a categorical variable: 0 represents absence while 1 represents presence.  The conversion of categorical variables into dummy variables leads to the formation of the binary matrix where each row represents a particular category.
 
-**Exact results**
+**Exact Results**
 
-FastQTLmapping conducts QTL mapping in two steps. In the first step, fastQTLmapping imputes all missing values by mean values. Then, under a relaxed threshold (`--outPcs`, by default 100 folds relaxed than the study-wide significance threshold), fastQTLmapping identifies all candidate meQTLs. In the second step, fastQTLmapping conducts standard multiple regressions using the original data without imputation to get exact results. In this way, fastQTLmapping guarantees exact results.
+FastQTLmapping conducts QTL mapping in two steps. In the first step, fastQTLmapping imputes all missing values by mean values. Then, under a relaxed threshold (`PLooseMarg`, by default 100 folds relaxed than the study-wide significance threshold), fastQTLmapping identifies all candidate QTLs. In the second step, fastQTLmapping conducts standard multiple regressions using the original data without imputation to get exact results. In this way, fastQTLmapping guarantees exact results.
 
-**Replacation mode**
-
-If user sets `--rpl`, only locus-pairs in the `rplFileName` will be test.
-
-The `rplFileName` file contains two columns of text separated by spaces, each line represents a locus-pair, and the two columns represent the locus IDs in the first and second omics, respectively.
-
-**Distance level**
+**Distance Level**
 
 Different thresholds can be specified according to physical distances between the markers under investigation, which facilitates the analysis of cis- and trans-mQTLs.
 
-The user can divide the locus-pairs into a series of distance levels by setting the parameter `--dl`. Assuming the value is set to $d_1, d_2, d_3 ... d_m​$​​​​, then the locus-pairs with physical distance belongs to $[0, d1)$​​​​ is considered as level 1，$[d_2, d_3)$​​​ is level 2, ..., $[d_m, +\infty)​$​​​ is level (m+1)。If not set, all results are categorized as level 1.
+The user can divide the loci-pairs into a series of distance levels by setting the parameter `--dl`. Assuming the value is set to $d_1, d_2, d_3 ... d_m$​​​​, then the loci-pairs with physical distance belongs to $[0, d1)$​​​​ is considered as level 1，$[d_2, d_3)$​​​ is level 2, ..., $[d_m, +\infty)$​​​ is level (m+1)。If not set, all results are categorized as level 1.
 
-The user can specify the significance threshold for each distance level by setting the parameter `--dlp`. The significance threshold for the (m+1)st level is `globalP`. If not set, all distance levels are set to the same significant threshold of `globalP`.
+The user can specify the significance threshold for each distance level by setting the parameter `--dlp`. The significance threshold for the (m+1)*th* level is `globalP`. If not set, all distance levels are set to the same significant threshold of `globalP`.
 
-## Example
+**FDR Procedure**
 
-```bash
-fastQTLmapping \
- --omics1 test.omics1.data \
- --omics2 test.omics2.data \
- --out test.rlt \
- --cov test.covar.data \
- --na NA --missing-rate 0.1 \
- --dl 1000000 2000000 --dlp 1 0.9 -p 0.8 \ 
- --threads 1 --omics1norm zscore --omics2norm rank
-```
+FastQTLmapping calculates the q-values for all of p-values using FDR method([Storey and Tibshirani, 2003](https://doi.org/10.1073/pnas.1530509100)). A faster solution of the pi0 estimation is used by fastQTLmapping([Storey J D, Taylor J E, Siegmund D. Strong control, 2004](https://doi.org/10.1111/j.1467-9868.2004.00439.x)).
 
-## Possible upcoming features
+**Peak Memory Estimation**
 
-* Counting total number of regression test and calculating Bonferroni threshold for each distance level.
+In the preprocessing stage, fastQTLmapping will estimate memory requirements of current job and print it on the screen. Noted that when the result is massively inflated, the actual memory consumption will be larger than the estimated value.
 
-* FDR procedure described by Storey and Tibshirani (ST) ([Storey and Tibshirani, 2003](https://www.pnas.org/doi/abs/10.1073/pnas.1530509100)).
+## Possible Upcoming Features
 
-* Batch and online  input and processing.
-
+* Replication mode
 * Permutation schedule for each molecular loci.
-
 * Estimating independent test number by MLE ([Galwey N W, 2009](https://pubmed.ncbi.nlm.nih.gov/19217024/)).
+

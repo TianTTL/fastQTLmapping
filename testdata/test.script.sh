@@ -1,1 +1,0 @@
-fastQTLmapping --omics1 test.omics1.data --omics2 test.omics2.data --out test.rlt --cov test.covar.data --na NA --missing-rate 0.1 --dl 1000000 2000000 --dlp 1 0.9 -p 0.8 --threads 1 --omics1norm zscore --omics2norm rank
