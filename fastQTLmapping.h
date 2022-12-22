@@ -46,7 +46,6 @@ vector<double> distLvP;
 uint8_t distLvNum;
 
 uint32_t threadMaxN = 1;
-float memPlaned = 0;
 int32_t omics1NormMod = 0, omics2NormMod = 0;
 float PLooseMarg = 100;
 uint32_t outPcs = 4;

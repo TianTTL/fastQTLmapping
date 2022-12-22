@@ -917,14 +917,13 @@ int main(int argc, char *argv[]) {
         required("--out") & value("outputFileName", outputFileName)               % "output file path",
         option("--outPcs") & integer("outPcs", outPcs)            % "the number of significant digits",
         option("--threads") & integer("threadMaxN", threadMaxN)                       % "max. threads",
-        option("--chunk") & value("chunkSize", chunkSize)             % "dimension of splitting chunk",
         option("-h", "--help").set(helpFlag, 1)                                          % "show help"
     );
 
     auto cntMode = "loci-pairs counting mode:" % (
         command("count").set(modeFlag, 1)                                             % "mode command",
         option("--dl") & numbers("distLv", distLv)     % "distance thresholds for each distance level", 
-        option("--FWER") & value("FWER", FWER)                             % "Family-wise Error Error"
+        option("--FWER") & value("FWER", FWER)                             % "Family-Wise Error Error"
     );
 
     auto discMode = "discovery mode:" % (
@@ -943,7 +942,8 @@ int main(int argc, char *argv[]) {
                                  | required("rank").set(omics1NormMod, 2)),
         option("--omics2norm")                                 % "normalization model for omics2 data"
             & (required("zscore").set(omics2NormMod, 1)
-                                 | required("rank").set(omics2NormMod, 2))
+                                 | required("rank").set(omics2NormMod, 2)),
+        option("--chunk") & value("chunkSize", chunkSize)             % "dimension of splitting chunk"
     );
 
     auto rplMode = "replication mode:" % (
@@ -1121,7 +1121,6 @@ int cntModeProc() {
     }
     oss << "output file : " << outputFileName << ".cnt" << endl;
     oss << "maximun parallel number : " << threadMaxN << endl;
-    oss << "dimension of splitting chunk : " << chunkSize << endl;
     dualOutput(oss, outputLogFile, std::cout);
 
     // calculate input file size
@@ -1207,17 +1206,6 @@ int cntModeProc() {
     }
     delete[] testCntPrivate;
 
-    // estimating peak memory
-    uint32_t omics1ChunkStrideAllc, omics2ChunkStrideAllc;
-    omics1ChunkStrideAllc = min(omics1Num, chunkSize * threadMaxN);
-    omics2ChunkStrideAllc = min(omics2Num, chunkSize);
-    uint64_t memCons = 
-    max(
-        (omics1ChunkStrideAllc + omics2ChunkStrideAllc) * sampleSize * (sizeof(float) * 2) + // omics data and orthgnal data
-        omics1ChunkStrideAllc * omics2ChunkStrideAllc * sizeof(float) + // gemm
-        omics1ChunkStrideAllc * omics2ChunkStrideAllc * globalP * PLooseMarg * 9.25 * sizeof(uint32_t), // tmp results
-        omics1Num * omics2Num * globalP * 4.25 * sizeof(uint32_t) // all result of P and Q and level
-    );
 
     // output counting results
     ofstream outputFile;
@@ -1226,11 +1214,6 @@ int cntModeProc() {
     for (uint8_t l = 0; l < distLvNum + 1; l++) { 
         outputFile << "Number of test of distance level " << l + 1 << " : \n\t" << testCnt[l] << endl;
         outputFile << "Bonferroni threshold of distance level " << l + 1 << " under FWER " << FWER << " : \n\t" << FWER / testCnt[l] << endl;
-    }
-    if (memCons < 1024 * 1024 * 1024) {
-        outputFile << "fastQTLmapping requires less than 1 GB RAM to complete the current task.\n";
-    } else {
-        outputFile << "fastQTLmapping requires ~ " << ceil(memCons * 1.0 / 1024 / 1024 / 1024) << " GB RAM to complete the current task.\n";
     }
 
     // global ending time stamp
