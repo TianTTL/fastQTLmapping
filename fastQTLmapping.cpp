@@ -899,8 +899,8 @@ extern ostringstream oss;
 }  // namespace meqtllib
 
 void dualOutput(std::ostringstream &oss, std::ostream &os1, std::ostream &os2) {
-    os1 << oss.str();
-    os2 << oss.str();
+    os1 << oss.str(); os1.flush();
+    os2 << oss.str(); os2.flush();
     oss.str(""); oss.clear(); 
 }
 
@@ -1953,6 +1953,8 @@ int discModeProc() {
             }
         }
     }
+    oss << endl;
+    oss << "Total number of significant results : " << rltN << endl; dualOutput(oss, outputLogFile, std::cout);
 
     // close outputBinFile
     outputBinFile.close();
@@ -1994,7 +1996,6 @@ int discModeProc() {
         }
     }
     
-    oss << endl;
     for (uint8_t l = 0; l < 1 + distLvNum; l++) {
         if (st_pi0[l] < 0) {
             oss << "Warning: The estimated PI0 <= 0 in distance level " << l << " . To keep the program running, pi0 is set to 1. \n" << endl; dualOutput(oss, outputLogFile, std::cout);
@@ -2066,27 +2067,41 @@ int discModeProc() {
         }
     }
 
-    // append Q-value to result file
-    inputBinFile.seekg(0); // set get point of inputBinFile into header
-    ofstream outputFile(outputFileName);
-    outputFile << setprecision(outPcs);
-    outputFile << "omics1\t" << "omics2\t" << "distance_level\t" << "NMISS\t" << "BETA\t" << "SE\t" << "T\t" << "P-value\t" << "Q-value\n";
-    for (uint64_t i = 0; i < rltN; i++) {
-        fitRlt rltTmp;
-        inputBinFile.read((char*)&rltTmp, sizeof(fitRlt));
+    // create text format output file
+    // append Q-value
+    long lines_count;
+    do {
+        inputBinFile.seekg(0); // set get point of inputBinFile into header
+        ofstream outputFile(outputFileName);
+        outputFile << setprecision(outPcs);
+        outputFile << "omics1\t" << "omics2\t" << "distance_level\t" 
+                   << "NMISS\t" << "BETA\t" << "SE\t" << "T\t" 
+                   << "P-value\t" << "Q-value\n";
+        for (uint64_t i = 0; i < rltN; i++) {
+            fitRlt rltTmp;
+            inputBinFile.read((char*)&rltTmp, sizeof(fitRlt));
 
-        outputFile << omics1Name[rltTmp.omics1Id] << "\t";
-        outputFile << omics2Name[rltTmp.omics2Id] << "\t";
-        outputFile << (uint32_t)rltTmp.level << "\t";
-        outputFile << rltTmp.nmiss << "\t";
-        outputFile << rltTmp.b << "\t";
-        outputFile << rltTmp.se << "\t";
-        outputFile << rltTmp.t << "\t";
-        outputFile << rltTmp.p << "\t";
-        outputFile << rltArrP[rltArrP[i].rank].p << "\n";
-    }
-    inputBinFile.close(); remove((outputFileName + ".bin").c_str());
-    outputFile.close();
+            outputFile << omics1Name[rltTmp.omics1Id] << "\t";
+            outputFile << omics2Name[rltTmp.omics2Id] << "\t";
+            outputFile << (uint32_t)rltTmp.level << "\t";
+            outputFile << rltTmp.nmiss << "\t";
+            outputFile << rltTmp.b << "\t";
+            outputFile << rltTmp.se << "\t";
+            outputFile << rltTmp.t << "\t";
+            outputFile << rltTmp.p << "\t";
+            outputFile << rltArrP[rltArrP[i].rank].p << "\n";
+            outputFile.flush();
+        }
+        inputBinFile.close();
+        outputFile.close();
+
+        // check line number
+        ifstream checkFile(outputFileName);
+        lines_count = std::count(std::istreambuf_iterator<char>(checkFile), 
+                                std::istreambuf_iterator<char>(), '\n');
+        checkFile.close();
+    } while (lines_count < rltN + 1);
+    remove((outputFileName + ".bin").c_str());
     
     // free rltArrP
     rltArrP.clear();
