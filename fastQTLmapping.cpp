@@ -1120,7 +1120,9 @@ int cntModeProc() {
         oss << "  omics 2 is in PLINK binary format\n";
     }
     oss << "output file : " << outputFileName << ".cnt" << endl;
-    oss << "maximun parallel number : " << threadMaxN << endl; dualOutput(oss, outputLogFile, std::cout);
+    oss << "maximun parallel number : " << threadMaxN << endl;
+    oss << "dimension of splitting chunk : " << chunkSize << endl;
+    dualOutput(oss, outputLogFile, std::cout);
 
     // calculate input file size
     if (bfileFlag1) { // input plink bfile as first omics
@@ -1205,6 +1207,18 @@ int cntModeProc() {
     }
     delete[] testCntPrivate;
 
+    // estimating peak memory
+    uint32_t omics1ChunkStrideAllc, omics2ChunkStrideAllc;
+    omics1ChunkStrideAllc = min(omics1Num, chunkSize * threadMaxN);
+    omics2ChunkStrideAllc = min(omics2Num, chunkSize);
+    uint64_t memCons = 
+    max(
+        (omics1ChunkStrideAllc + omics2ChunkStrideAllc) * sampleSize * (sizeof(float) * 2) + // omics data and orthgnal data
+        omics1ChunkStrideAllc * omics2ChunkStrideAllc * sizeof(float) + // gemm
+        omics1ChunkStrideAllc * omics2ChunkStrideAllc * globalP * PLooseMarg * 9.25 * sizeof(uint32_t), // tmp results
+        omics1Num * omics2Num * globalP * 4.25 * sizeof(uint32_t) // all result of P and Q and level
+    );
+
     // output counting results
     ofstream outputFile;
     outputFile.open(outputFileName + ".cnt");
@@ -1212,6 +1226,11 @@ int cntModeProc() {
     for (uint8_t l = 0; l < distLvNum + 1; l++) { 
         outputFile << "Number of test of distance level " << l + 1 << " : \n\t" << testCnt[l] << endl;
         outputFile << "Bonferroni threshold of distance level " << l + 1 << " under FWER " << FWER << " : \n\t" << FWER / testCnt[l] << endl;
+    }
+    if (memCons < 1024 * 1024 * 1024) {
+        outputFile << "fastQTLmapping requires less than 1 GB RAM to complete the current task.\n";
+    } else {
+        outputFile << "fastQTLmapping requires ~ " << ceil(memCons * 1.0 / 1024 / 1024 / 1024) << " GB RAM to complete the current task.\n";
     }
 
     // global ending time stamp
@@ -1399,7 +1418,7 @@ int discModeProc() {
     if (memCons < 1024 * 1024 * 1024) {
         oss << "fastQTLmapping requires less than 1 GB RAM to complete the current task.\n\n"; dualOutput(oss, outputLogFile, std::cout);
     } else {
-        oss << "fastQTLmapping requires about " << ceil(memCons * 1.0 / 1024 / 1024 / 1024) << " GB RAM to complete the current task.\n\n"; dualOutput(oss, outputLogFile, std::cout);
+        oss << "fastQTLmapping requires ~ " << ceil(memCons * 1.0 / 1024 / 1024 / 1024) << " GB RAM to complete the current task.\n\n"; dualOutput(oss, outputLogFile, std::cout);
     }
 
     // clocking
