@@ -51,16 +51,16 @@ Library: MKL (>= 2019.0)
 ```bash
 fastQTLmapping --omics1 <omics1FileName> [bfile] --omics2 <omics2FileName>
                [bfile] --out <outputFileName> [--outPcs <outPcs>] [--threads
-               <threadMaxN>] [--chunk <chunkSize>] [-h] count [--dl
-               <distLv>...] [--FWER <FWER>]
+               <threadMaxN>] [-h] count [--dl <distLv>...] [--FWER <FWER>]
 
 fastQTLmapping --omics1 <omics1FileName> [bfile] --omics2 <omics2FileName>
                [bfile] --out <outputFileName> [--outPcs <outPcs>] [--threads
-               <threadMaxN>] [--chunk <chunkSize>] [-h] discovery [-p
-               <globalP>] [--ploose <PLooseMarg>] [--cov <covarFileName>]
-               [--categ <categFlag>...] [--na <NASign>] [--MR <msRtThd>]
-               [--SD <sdThd>] [--dl <distLv>...] [--dlp <distLvP>...]
+               <threadMaxN>] [-h] discovery [-p <globalP>] [--ploose
+               <PLooseMarg>] [--cov <covarFileName>] [--categ
+               <categFlag>...] [--na <NASign>] [--MR <msRtThd>] [--SD
+               <sdThd>] [--dl <distLv>...] [--dlp <distLvP>...]
                [--omics1norm (zscore|rank)] [--omics2norm (zscore|rank)]
+               [--chunk <chunkSize>]
 ```
 
 **Mode-independent Parameter List**
