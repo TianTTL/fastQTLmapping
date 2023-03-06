@@ -93,7 +93,7 @@ fastQTLmapping --omics1 <omics1FileName> [bfile] --omics2 <omics2FileName>
 | `[--cov <covarFileName>]`     | Covariate file path. The default setting is NULL.            |
 | `[--categ <categFlag>]`       | A series of integer indicate which rows of covariates are categorical, starting from 1. |
 | `[--na <NASign>]`             | A string identifying the missing value. The default is `NA`. |
-| `[--MR <missingRateThd>]`     | Missing rate threshold of concatenated dependent and explanatory variables. Loci-pairs above this threshold will be filtered out. The default value is 0.1. |
+| `[--MR <msRtThd>]`            | Missing rate threshold of concatenated dependent and explanatory variables. Loci-pairs above this threshold will be filtered out. The default value is 0.1. |
 | `[--SD <sdThd>]`              | Standard deviation threshold of quantitative loci. Loci with a standard deviation below `sdThd` will be considered constant and filtered out. The default value is 1e-6. |
 | `[--dl <distLv> ...]`         | A series of increasing numbers used to divide loci-pairs into different distance levels based on physical distance.  The default setting is NULL. |
 | `[--dlp <distLvP> ...]`       | A series of numbers indicate the significance thresholds for the 1*st* to m*th* distance levels, which need to be the same length as `distLv`.  The default setting is NULL. |
