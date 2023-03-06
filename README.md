@@ -2,6 +2,10 @@
 
 FastQTLmapping is a computationally efficient, exact, and generic solver for exhaustive multiple regression analysis involving extraordinarily large numbers of dependent and explanatory variables with covariates, which is particularly helpful in QTL-like analysis. FastQTLmapping can afford omics data containing tens of thousands of individuals and billions of molecular loci.
 
+## Current Version
+
+0.9.4
+
 ## Counting Mode
 
 In counting mode, fastQTLmapping will count the number of loci-pairs in each distance level and calculate the significant threshold that controls FWER using bonferroni method. The distance level threshold and FWER(Family-Wise Error Rate) are user specified.
@@ -110,7 +114,7 @@ For genomics data in [Plink Binary File](http://www.cog-genomics.org/plink/1.9/f
 
 It is common to include covariates in an eQTL model to account for such effects as population stratiﬁcation, gender, age, white blood count and other clinical variables.
 
-Covariate data is a space- or tab-delimited matrix with no table headers recorded in `covarFileName` file. Each column represents a sample; each row represents a covariate. User can specify which columns of covariates are categorical variables by setting `--categ`. Numeric covariates can be represented as numbers, while categorical covariates can be represented  as numbers or strings. 
+Covariate data is a space- or tab-delimited matrix with no table headers recorded in `covarFileName` file. Each column represents a sample; each row represents a covariate. User can specify which rows of covariates are categorical variables by setting `--categ`. Numeric covariates can be represented as numbers, while categorical covariates can be represented  as numbers or strings. 
 
 The individual order of the omics data and the covariate data must be consistent. Missing values need to be marked by a unique string. 
 
