@@ -51,7 +51,8 @@ void calcBfileSize(string bfileNameRoot, uint32_t &sampleSize, uint32_t &omicsSi
 
 //input loci information of BED file
 void getBfileSNPid(string bfileNameRoot, uint32_t num_snps, 
-                   vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP) {
+                   vector<string>& omicsName, vector<int32_t>& omicsCHR, 
+                   vector<int64_t>& omicsBPST, vector<int64_t>& omicsBPEN) {
     string s, oneItem;
     ifstream inputFile;
 
@@ -74,9 +75,9 @@ void getBfileSNPid(string bfileNameRoot, uint32_t num_snps,
 
         is >> oneItem; // BP
         try {
-            omicsBP[i] = stol(oneItem);
+            omicsBPST[i] = omicsBPEN[i] = stol(oneItem);
         } catch (std::invalid_argument) {
-            omicsBP[i] = -1;
+            omicsBPST[i] = omicsBPEN[i] = -1;
         }
     }
     inputFile.close();
@@ -162,7 +163,7 @@ void calcInputSize(string omicsFileName, uint32_t &sampleSize, uint32_t& omicsNu
     while (is >> oneItem) {
         colsCount++;
     }
-    sampleSize = colsCount - 3; // first 3 columns are loci info
+    sampleSize = colsCount - 4; // first 4 columns are loci info
     rowsCount++;
 
     while (getline(inputFile, s)) {
@@ -174,13 +175,16 @@ void calcInputSize(string omicsFileName, uint32_t &sampleSize, uint32_t& omicsNu
 }
 
 // input loci information of 2 dimension omics file
-void get2DfloatId(string fileName, uint32_t omicsNum, 
-                  vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP) {
+uint32_t get2DfloatId(string fileName, uint32_t omicsNum, 
+                      vector<string>& omicsName, vector<int32_t>& omicsCHR, 
+                      vector<int64_t>& omicsBPST, vector<int64_t>& omicsBPEN) {
     ifstream inputFile;
     string one_line, oneItem;
     string delimiter = " \t";
     string::size_type pos,lastPos;
+    uint32_t stEnIllegal = 0;
     inputFile.open(fileName);
+
     for (uint32_t i = 0; i < omicsNum; i++) {
         getline(inputFile, one_line);
 
@@ -200,14 +204,30 @@ void get2DfloatId(string fileName, uint32_t omicsNum,
 
         lastPos = one_line.find_first_not_of(delimiter, pos);
         pos = one_line.find_first_of(delimiter, lastPos);
-        oneItem = one_line.substr(lastPos, pos - lastPos); // BP
+        oneItem = one_line.substr(lastPos, pos - lastPos); // start postion
         try {
-            omicsBP[i] = stol(oneItem);
+            omicsBPST[i] = stol(oneItem);
         } catch (std::invalid_argument) {
-            omicsBP[i] = -1;
+            omicsBPST[i] = -1;
+        }
+
+        lastPos = one_line.find_first_not_of(delimiter, pos);
+        pos = one_line.find_first_of(delimiter, lastPos);
+        oneItem = one_line.substr(lastPos, pos - lastPos); // end postion
+        try {
+            omicsBPEN[i] = stol(oneItem);
+        } catch (std::invalid_argument) {
+            omicsBPEN[i] = -1;
+        }
+
+        if (omicsBPST[i] > omicsBPEN[i]) {
+            omicsBPST[i] = omicsBPEN[i] = -1;
+            stEnIllegal = 1;
         }
     }
     inputFile.close();
+
+    return(stEnIllegal);
 }
 
 // input 2 dimension omics file
@@ -239,8 +259,10 @@ void input2DfloatParse(std::ifstream& inputFile,
             pos = one_line.find_first_of(delimiter, lastPos); // CHR
             
             lastPos = one_line.find_first_not_of(delimiter, pos);
-            pos = one_line.find_first_of(delimiter, lastPos); // BP
-            
+            pos = one_line.find_first_of(delimiter, lastPos); // position start
+
+            lastPos = one_line.find_first_not_of(delimiter, pos);
+            pos = one_line.find_first_of(delimiter, lastPos); // position end
             dataArea[i] = one_line.substr(pos, one_line.length() - pos);
         }
     }
@@ -904,7 +926,7 @@ void dualOutput(std::ostringstream &oss, std::ostream &os1, std::ostream &os2) {
     oss.str(""); oss.clear(); 
 }
 
-int cntModeProc();
+int preAnalModeProc();
 int discModeProc();
 
 int main(int argc, char *argv[]) {
@@ -920,7 +942,7 @@ int main(int argc, char *argv[]) {
         option("-h", "--help").set(helpFlag, 1)                                          % "show help"
     );
 
-    auto cntMode = "loci-pairs counting mode:" % (
+    auto preAnalMode = "loci-pairs counting mode:" % (
         command("count").set(modeFlag, 1)                                             % "mode command",
         option("--dl") & numbers("distLv", distLv)     % "distance thresholds for each distance level", 
         option("--FWER") & value("FWER", FWER)                             % "Family-Wise Error Error"
@@ -965,7 +987,7 @@ int main(int argc, char *argv[]) {
 
     auto cli = (
         firstOpt,
-        cntMode | discMode //| rplMode
+        preAnalMode | discMode //| rplMode
     );
 
     // output man
@@ -1093,7 +1115,7 @@ int main(int argc, char *argv[]) {
 
     int FQMstat;
     if (modeFlag == 1) {
-        FQMstat = cntModeProc();
+        FQMstat = preAnalModeProc();
     } else if (modeFlag == 2) {
         FQMstat = discModeProc();
     } else if (modeFlag == 3) {
@@ -1106,7 +1128,7 @@ int main(int argc, char *argv[]) {
     return(FQMstat);
 }
 
-int cntModeProc() {
+int preAnalModeProc() {
     // global starting time stamp 
     double time_start_whole = omp_get_wtime(), time_end;
 
@@ -1143,49 +1165,59 @@ int cntModeProc() {
     // input variates informatrion of omics1 data
     vector<string> omics1Name(omics1Num); // locus name for first omics
     vector<int32_t> omics1CHR(omics1Num); // CHR number for first omics
-    vector<int64_t> omics1BP(omics1Num); // BP number for first omics
+    vector<int64_t> omics1BPST(omics1Num); // start postition number for first omics
+    vector<int64_t> omics1BPEN(omics1Num); // end postion number for first omics
     if (bfileFlag1) { // input plink bfile as first omics
-        getBfileSNPid(omics1FileName, omics1Num, omics1Name, omics1CHR, omics1BP);
+        getBfileSNPid(omics1FileName, omics1Num, omics1Name, omics1CHR, omics1BPST, omics1BPEN);
     } else {
-        get2DfloatId(omics1FileName, omics1Num, omics1Name, omics1CHR, omics1BP);
+        uint32_t stEnIllegal = 
+            get2DfloatId(omics1FileName, omics1Num, omics1Name, omics1CHR, omics1BPST, omics1BPEN);
+        if (stEnIllegal > 0) {
+            oss << "Warning: Start positions of variables in omics1 data are greater than their end positions."
+                << endl; dualOutput(oss, outputLogFile, std::cout);
+        }
     }
 
     // input variates informatrion of omics2 data
     vector<string> omics2Name(omics2Num); // locus name for second omics
     vector<int32_t> omics2CHR(omics2Num); // CHR number for second omics
-    vector<int64_t> omics2BP(omics2Num); // BP number for second omics
+    vector<int64_t> omics2BPST(omics2Num); // start postition number for first omics
+    vector<int64_t> omics2BPEN(omics2Num); // end postion number for first omics
     if (bfileFlag2) { // input plink bfile as second omics
-        getBfileSNPid(omics2FileName, omics2Num, omics2Name, omics2CHR, omics2BP);
+        getBfileSNPid(omics2FileName, omics2Num, omics2Name, omics2CHR, omics2BPST, omics2BPEN);
     } else {
-        get2DfloatId(omics2FileName, omics2Num, omics2Name, omics2CHR, omics2BP);
+        uint32_t stEnIllegal = 
+            get2DfloatId(omics2FileName, omics2Num, omics2Name, omics2CHR, omics2BPST, omics2BPEN);
+        if (stEnIllegal > 0) {
+            oss << "Warning: Start positions of variables in omics2 data are greater than their end positions."
+                << endl; dualOutput(oss, outputLogFile, std::cout);
+        }
     }
 
     // count the number of test of each distance level
     vector<uint64_t> testCnt(distLvNum + 1, 0);
-    int *testCntPrivate;
+    uint64_t* testCntPrivate = new uint64_t[(distLvNum + 1)*threadMaxN]();
 #   pragma omp parallel num_threads(threadMaxN)
     {
         const int nthreads = omp_get_num_threads();
-        const int ithread = omp_get_thread_num();
-
-#       pragma omp single
-        {
-            testCntPrivate = new int[(distLvNum + 1)*nthreads]();
-        }
+        const int tid = omp_get_thread_num();
 
 #       pragma omp for schedule(dynamic)
-        for (uint32_t i = 0 ; i < omics1Num ; ++i)
+        for (uint32_t i = 0 ; i < omics1Num; ++i)
         {
-            uint32_t offset = (distLvNum + 1) * ithread;
-            for (uint32_t j = 0 ; j < omics2Num ; ++j) {
+            uint32_t offset = (distLvNum + 1) * tid;
+            for (uint32_t j = 0 ; j < omics2Num; ++j) {
+                uint64_t lociDist = max(omics1BPST[i] - omics2BPEN[j],
+                                        omics2BPST[j] - omics1BPEN[i]);
                 if (distLvNum >= 1 &&
                     omics1CHR[i] == omics2CHR[j] && 
                     omics1CHR[i] > 0 && omics2CHR[j] > 0 && 
-                    abs(omics1BP[i] - omics2BP[j]) <= distLv[distLvNum - 1] && 
-                    omics1BP[i] > 0 && omics2BP[j] > 0) { // two locus are localed in the broadest level distance
-                    for (uint32_t k = 0; k < distLvNum; k++) {
-                        if (abs(omics1BP[i] - omics2BP[j]) <= distLv[k]) {
-                            testCntPrivate[offset + k] += 1;
+                    lociDist <= distLv[distLvNum - 1] && 
+                    omics1BPST[i] > 0 && omics2BPST[j] > 0) { 
+                    // two locus are localed in the broadest level distance
+                    for (uint8_t l = 0; l < distLvNum; l++) {
+                        if (lociDist <= distLv[l]) {
+                            testCntPrivate[offset + l] += 1;
                             break;
                         }
                     }
@@ -1206,12 +1238,11 @@ int cntModeProc() {
     }
     delete[] testCntPrivate;
 
-
     // output counting results
     ofstream outputFile;
-    outputFile.open(outputFileName + ".cnt");
+    outputFile.open(outputFileName + ".preAnal");
     outputFile << setprecision(outPcs);
-    for (uint8_t l = 0; l < distLvNum + 1; l++) { 
+    for (uint8_t l = 0; l < (distLvNum + 1); l++) { 
         outputFile << "Number of test of distance level " << l + 1 << " : \n\t" << testCnt[l] << endl;
         outputFile << "Bonferroni threshold of distance level " << l + 1 << " under FWER " << FWER << " : \n\t" << FWER / testCnt[l] << endl;
     }
@@ -1255,21 +1286,33 @@ int discModeProc() {
     // input variates informatrion of omics1 data
     vector<string> omics1Name(omics1Num); // locus name for first omics
     vector<int32_t> omics1CHR(omics1Num); // CHR number for first omics
-    vector<int64_t> omics1BP(omics1Num); // BP number for first omics
+    vector<int64_t> omics1BPST(omics1Num); // start postition number for first omics
+    vector<int64_t> omics1BPEN(omics1Num); // end postion number for first omics
     if (bfileFlag1) { // input plink bfile as first omics
-        getBfileSNPid(omics1FileName, omics1Num, omics1Name, omics1CHR, omics1BP);
+        getBfileSNPid(omics1FileName, omics1Num, omics1Name, omics1CHR, omics1BPST, omics1BPEN);
     } else {
-        get2DfloatId(omics1FileName, omics1Num, omics1Name, omics1CHR, omics1BP);
+        uint32_t stEnIllegal = 
+            get2DfloatId(omics1FileName, omics1Num, omics1Name, omics1CHR, omics1BPST, omics1BPEN);
+        if (stEnIllegal > 0) {
+            oss << "Warning: Start positions of variables in omics1 data are greater than their end positions."
+                << endl; dualOutput(oss, outputLogFile, std::cout);
+        }
     }
 
     // input variates informatrion of omics2 data
     vector<string> omics2Name(omics2Num); // locus name for second omics
     vector<int32_t> omics2CHR(omics2Num); // CHR number for second omics
-    vector<int64_t> omics2BP(omics2Num); // BP number for second omics
+    vector<int64_t> omics2BPST(omics2Num); // start postition number for first omics
+    vector<int64_t> omics2BPEN(omics2Num); // end postion number for first omics
     if (bfileFlag2) { // input plink bfile as second omics
-        getBfileSNPid(omics2FileName, omics2Num, omics2Name, omics2CHR, omics2BP);
+        getBfileSNPid(omics2FileName, omics2Num, omics2Name, omics2CHR, omics2BPST, omics2BPEN);
     } else {
-        get2DfloatId(omics2FileName, omics2Num, omics2Name, omics2CHR, omics2BP);
+        uint32_t stEnIllegal = 
+            get2DfloatId(omics2FileName, omics2Num, omics2Name, omics2CHR, omics2BPST, omics2BPEN);
+        if (stEnIllegal > 0) {
+            oss << "Warning: Start positions of variables in omics2 data are greater than their end positions."
+                << endl; dualOutput(oss, outputLogFile, std::cout);
+        }
     }
 
     // record some parameters and data scale into log file 
@@ -1462,7 +1505,9 @@ int discModeProc() {
     
     // assign gemm results
     // malloc float type to save space
-    float* corrMat = (float*) mkl_malloc(sizeof(float) * (uint32_t) omics1ChunkStrideAllc * omics2ChunkStrideAllc, 64);
+    float* corrMat = (float*) mkl_malloc(sizeof(float) * 
+                                         (uint32_t) omics1ChunkStrideAllc * 
+                                         omics2ChunkStrideAllc, 64);
 
     // assign counts of bins of each gradient significant levels conjunction with each distance levels
     uint64_t* st_W = new uint64_t[threadMaxN * (st_ll + 1) * (distLvNum + 1)]();
@@ -1497,28 +1542,34 @@ int discModeProc() {
                 cntrl(covarData, i, sampleSize, covarRowSDCntrl1, sdThd, NASignMarkC);
             }
 
-            // transpose covar
-            for (uint32_t i = 0; i < covarNum; i++)
-                for (uint32_t j = 0; j < sampleSize; j++)
-                    covarDataT[j * covarNum + i] = covarData[i * sampleSize + j];
-            // QR decompose
-            LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, sampleSize, covarNum, covarDataT, covarNum, tau);
-            LAPACKE_sorgqr(LAPACK_ROW_MAJOR, sampleSize, covarNum, covarNum, covarDataT, covarNum, tau);
+#           pragma omp single
+            {
+                // transpose covar
+                for (uint32_t i = 0; i < covarNum; i++)
+                    for (uint32_t j = 0; j < sampleSize; j++)
+                        covarDataT[j * covarNum + i] = covarData[i * sampleSize + j];
+                // QR decompose
+                LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, sampleSize, covarNum, covarDataT, covarNum, tau);
+                LAPACKE_sorgqr(LAPACK_ROW_MAJOR, sampleSize, covarNum, covarNum, covarDataT, covarNum, tau);
 
-            // projection
-            mkl_set_num_threads_local(threadMaxN); // Specifies the number of threads for MKL
-            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, sampleSize, sampleSize, covarNum, 
-                1, covarDataT, covarNum, covarDataT, covarNum, 0, covarNormSqr, sampleSize);
-            mkl_set_num_threads_local(0); // reset the thread-local number to global number
-        }
-        // calculate inner product between omics data and covariates
-        for (uint32_t i = 0; i < covarNum; i++) { CovarInter[i].resize(i + 1); }
-        for (uint32_t i = 0; i < covarNum; i++) {
-            for (uint32_t j = i * sampleSize; j < (i + 1) * sampleSize; j++) {
-                covarSum[i] += covarData[j];
+                // projection
+                mkl_set_num_threads_local(nthreads); // Specifies the number of threads for MKL
+                cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, sampleSize, sampleSize, covarNum, 
+                    1, covarDataT, covarNum, covarDataT, covarNum, 0, covarNormSqr, sampleSize);
+                mkl_set_num_threads_local(0); // reset the thread-local number to global number
             }
-            for (uint32_t j = 0; j <= i; j++) {
-                CovarInter[i][j] = cblas_sdot(sampleSize, &covarData[i * sampleSize], 1, &covarData[j * sampleSize], 1);
+        }
+#       pragma omp single
+        {
+            // calculate inner product between omics data and covariates
+            for (uint32_t i = 0; i < covarNum; i++) { CovarInter[i].resize(i + 1); }
+            for (uint32_t i = 0; i < covarNum; i++) {
+                for (uint32_t j = i * sampleSize; j < (i + 1) * sampleSize; j++) {
+                    covarSum[i] += covarData[j];
+                }
+                for (uint32_t j = 0; j <= i; j++) {
+                    CovarInter[i][j] = cblas_sdot(sampleSize, &covarData[i * sampleSize], 1, &covarData[j * sampleSize], 1);
+                }
             }
         }
 
@@ -1605,7 +1656,7 @@ int discModeProc() {
 #                       pragma omp single
                         {
                             // projection
-                            mkl_set_num_threads_local(threadMaxN); // Specifies the number of threads for MKL
+                            mkl_set_num_threads_local(nthreads); // Specifies the number of threads for MKL
                             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, omics1ChunkStride, sampleSize, sampleSize, 
                                 -1, omics1Data, sampleSize, covarNormSqr, sampleSize, 1, omics1DataOrtg, sampleSize);
                             mkl_set_num_threads_local(0); // reset the thread-local number to global number
@@ -1683,7 +1734,7 @@ int discModeProc() {
 #                   pragma omp single
                     {
                         // projection
-                        mkl_set_num_threads_local(threadMaxN); // Specifies the number of threads for MKL
+                        mkl_set_num_threads_local(nthreads); // Specifies the number of threads for MKL
                         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, omics2ChunkStride, sampleSize, sampleSize, 
                             -1, omics2Data, sampleSize, covarNormSqr, sampleSize, 1, omics2DataOrtg, sampleSize);
                         mkl_set_num_threads_local(0); // reset the thread-local number to global number
@@ -1755,19 +1806,18 @@ int discModeProc() {
                 
                 // mapping block info of calling thread
                 uint32_t omics1BlockStride, omics2BlockStride, omics1BlockHead, omics2BlockHead;
-                uint64_t pairAmt;
                 omics1BlockStride = min(omics1BlockStrideAllc, omics1ChunkStride - omics1BlockStrideAllc * tid);
                 omics2BlockStride = omics2BlockStrideAllc;
                 omics1BlockHead = tid * omics1BlockStrideAllc;
                 omics2BlockHead = 0;
-                pairAmt = omics1BlockStride * omics2BlockStride;
+                float *corrCurr;
 
                 cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
                             omics1BlockStride, omics2BlockStride, sampleSize, 
                             1, &omics1DataOrtg[omics1BlockHead * sampleSize], sampleSize, omics2DataOrtg, sampleSize, 
-                            0, &corrMat[tid * omics1BlockStride * omics2BlockStride], omics2BlockStride);
+                            0, &corrMat[tid * omics1BlockStrideAllc * omics2BlockStrideAllc], omics2BlockStride);
 
-                float *corrCurr = &corrMat[tid * omics1BlockStride * omics2BlockStride];
+                corrCurr = &corrMat[tid * omics1BlockStrideAllc * omics2BlockStrideAllc];
                 for (uint32_t i = 0; i < omics1BlockStride; i++) {
                     for (uint32_t j = 0; j < omics2BlockStride; j++) {
                         uint32_t omics1VarInChunk = i + omics1BlockHead;
@@ -1858,13 +1908,16 @@ int discModeProc() {
                         }
 
                         int8_t levelCurr = -1;
+                        uint64_t lociDist = max(omics1BPST[omics1VarGlobal] - omics2BPEN[omics2VarGlobal],
+                                                omics2BPST[omics2VarGlobal] - omics1BPEN[omics1VarGlobal]);
                         if (distLvNum >= 1 &&
                             omics1CHR[omics1VarGlobal] == omics2CHR[omics2VarGlobal] && 
                             omics1CHR[omics1VarGlobal] > 0 && omics2CHR[omics2VarGlobal] > 0 && 
-                            abs(omics1BP[omics1VarGlobal] - omics2BP[omics2VarGlobal]) <= distLv[distLvNum - 1] && 
-                            omics1BP[omics1VarGlobal] > 0 && omics2BP[omics2VarGlobal] > 0) { // two locus are localed in the broadest level distance
+                            lociDist <= distLv[distLvNum - 1] && 
+                            omics1BPST[omics1VarGlobal] > 0 && omics2BPST[omics2VarGlobal] > 0) { 
+                            // two locus are localed in the broadest level distance
                             for (uint8_t l = 0; l < distLvNum; l++) {
-                                if (abs(omics1BP[omics1VarGlobal] - omics2BP[omics2VarGlobal]) <= distLv[l]) {
+                                if (lociDist <= distLv[l]) {
                                     st_W[st_WOffset_sec + l] += 1;
                                     if (corrCurrAbs >= rCriticalValue[l]) { levelCurr = l; }
                                     break;
@@ -1921,6 +1974,9 @@ int discModeProc() {
                         << " has been completed, time used : " << time_end - time_start_whole << " s" << endl;
                     dualOutput(oss, outputLogFile, std::cout);
                 }
+
+                // synchronize threads
+#               pragma omp barrier
             }
         }
 

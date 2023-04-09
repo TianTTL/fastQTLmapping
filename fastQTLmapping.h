@@ -29,7 +29,7 @@ struct fitRltPart {
 };
 
 // global variables
-string VERSION="0.9.4";
+string VERSION="0.9.5";
 string omics1FileName, omics2FileName, outputFileName, rplFileName = "NA";
 string covarFileName;
 bool bfileFlag1 = false, bfileFlag2 = false;
@@ -50,7 +50,7 @@ int32_t omics1NormMod = 0, omics2NormMod = 0;
 float PLooseMarg = 100;
 uint32_t outPcs = 4;
 int32_t helpFlag = 0;
-int32_t modeFlag = 0; // 1 cnt, 2 disc, 3 rpl
+int32_t modeFlag = 0; // 1 pre-analysis, 2 disc, 3 rpl
 uint32_t chunkSize = 5000;
 
 uint32_t omics1Num, omics2Num, covarNum, sampleSize;
@@ -59,14 +59,16 @@ ostringstream oss;
 
 void calcBfileSize(string bfileNameRoot, uint32_t &sampleSize, uint32_t &omicsSize);
 void getBfileSNPid(string bfileNameRoot, uint32_t num_snps, 
-                   vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP);
+                   vector<string>& omicsName, vector<int32_t>& omicsCHR, 
+                   vector<int64_t>& omicsBPST, vector<int64_t>& omicsBPEN);
 void inputOmicsBed(istreambuf_iterator<char>& inputFile,
                    float *omicsData, 
                    uint32_t locusCount, uint32_t sampleSize, vector<bool>& sampleFltSign, uint32_t sampleFltNum, 
                    vector<vector<uint32_t> >& NASignMark);
 void calcInputSize(string omicsFileName, uint32_t &sampleSize, uint32_t& omicsNum);
-void get2DfloatId(string fileName, uint32_t omicsNum, 
-                  vector<string>& omicsName, vector<int32_t>& omicsCHR, vector<int64_t>& omicsBP);
+uint32_t get2DfloatId(string fileName, uint32_t omicsNum, 
+                      vector<string>& omicsName, vector<int32_t>& omicsCHR, 
+                      vector<int64_t>& omicsBPST, vector<int64_t>& omicsBPEN);
 void input2DfloatParse(std::ifstream& inputFile, 
                        float* omicsData, 
                        uint32_t locusCount, uint32_t sampleSize, 

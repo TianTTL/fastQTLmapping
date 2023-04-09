@@ -106,7 +106,7 @@ fastQTLmapping --omics1 <omics1FileName> [bfile] --omics2 <omics2FileName>
 
 FastQTLmapping accepts two widely used data formats.
 
-For quantitative omics data, input file is a space- or tab-delimited matrix without table headers. Each row represents a molecular loci. The first three columns record the loci ID, the chromosome and the BP, and subsequent columns record the quantitative molecular-level in each individuals.  Missing values need to be marked by a unique string that specified by `NASign`.
+For quantitative omics data, input file is a space- or tab-delimited matrix without table headers. Each row represents a molecular loci. The first four columns record the loci ID, the chromosome, the start position and the end position, and subsequent columns record the quantitative molecular-level in each individuals.  Missing values need to be marked by a unique string that specified by `NASign`.
 
 For genomics data in [Plink Binary File](http://www.cog-genomics.org/plink/1.9/formats#bed) format, use `bfile` flag to make fastQTLmapping input binary file set: `omics1FileName.bed`+`omics1FileName.bim`+`omics1FileName.fam`.
 
