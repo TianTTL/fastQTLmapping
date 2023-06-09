@@ -725,7 +725,7 @@ bool operator<(const fitRltPart &A, const fitRltPart &B) {
     if (A.level != B.level) {
         return(A.level < B.level);
     } else {
-        return(A.p < B.p);
+        return(A.pq < B.pq);
     }
 }
 
@@ -2075,36 +2075,29 @@ int discModeProc() {
             return 1;
         }
         rltArrP[i].level = rltTmp.level;
-        rltArrP[i].p = rltTmp.p;
+        rltArrP[i].pq = rltTmp.p;
         rltArrP[i].rank = i;
     }
 
     // calc Q-value
     if (rltN > 0) {
         sort(rltArrP.begin(), rltArrP.end());
-#       pragma omp parallel \
-        num_threads(threadMaxN) default(shared) 
-        {
-            int64_t rltHead = 0, rltTail;
-            for (uint8_t l = 0; l < 1 + distLvNum; l++) {
-                for (rltTail = rltHead; rltArrP[rltTail].level == l + 1; rltTail++);
-#               pragma omp for schedule(dynamic) 
-                for (int64_t i = rltHead; i < rltTail; i++) {
-                    // use p to storage q value
-                    rltArrP[i].p = rltArrP[i].p * testCnt[l]/((i - rltHead + 1) * (1 - pow(1 - rltArrP[i].p, testCnt[l])));
-                }
-#               pragma omp for schedule(dynamic) 
-                for (int64_t i = rltTail - 2; i >= rltHead; i--) {
-                    if (rltArrP[i].p > rltArrP[i+1].p) {
-                        rltArrP[i].p = rltArrP[i+1].p;
-                    }            
-                }
-#               pragma omp for schedule(dynamic) 
-                for (int64_t i = rltHead; i < rltTail; i++) {
-                    rltArrP[i].p = min(1.0, rltArrP[i].p) * st_pi0[l];
-                }
-                rltHead = rltTail;
+        int64_t rltHead = 0, rltTail;
+        for (uint8_t l = 0; l < 1 + distLvNum; l++) {
+            for (rltTail = rltHead; rltArrP[rltTail].level == l + 1; rltTail++);
+            for (int64_t i = rltHead; i < rltTail; i++) {
+                // use pq to storage q value
+                rltArrP[i].pq = rltArrP[i].pq * testCnt[l] / (i - rltHead + 1);
             }
+            for (int64_t i = rltTail - 2; i >= rltHead; i--) {
+                if (rltArrP[i].pq > rltArrP[i+1].pq) {
+                    rltArrP[i].pq = rltArrP[i+1].pq;
+                }            
+            }
+            for (int64_t i = rltHead; i < rltTail; i++) {
+                rltArrP[i].pq = min(1.0, rltArrP[i].pq) * st_pi0[l];
+            }
+            rltHead = rltTail;
         }
     }
 
@@ -2132,7 +2125,9 @@ int discModeProc() {
         inputBinFile.seekg(0); // set get point of inputBinFile into header
         ofstream outputFile(outputFileName);
         outputFile << setprecision(outPcs);
-        outputFile << "omics1\t" << "omics2\t" << "distance_level\t" 
+        outputFile << "Var1\t" << "Var2\t" 
+                   << "CHR1\t" << "BPST1\t" << "BPED1\t" 
+                   << "CHR2\t" << "BPST2\t" << "BPED2\t" << "distance_level\t" 
                    << "NMISS\t" << "BETA\t" << "SE\t" << "T\t" 
                    << "P-value\t" << "Q-value\n";
         for (uint64_t i = 0; i < rltN; i++) {
@@ -2141,13 +2136,19 @@ int discModeProc() {
 
             outputFile << omics1Name[rltTmp.omics1Id] << "\t";
             outputFile << omics2Name[rltTmp.omics2Id] << "\t";
+            outputFile << omics1CHR[rltTmp.omics1Id] << "\t";
+            outputFile << omics1BPST[rltTmp.omics1Id] << "\t";
+            outputFile << omics1BPEN[rltTmp.omics1Id] << "\t";
+            outputFile << omics2CHR[rltTmp.omics2Id] << "\t";
+            outputFile << omics2BPST[rltTmp.omics2Id] << "\t";
+            outputFile << omics2BPEN[rltTmp.omics2Id] << "\t";
             outputFile << (uint32_t)rltTmp.level << "\t";
             outputFile << rltTmp.nmiss << "\t";
             outputFile << rltTmp.b << "\t";
             outputFile << rltTmp.se << "\t";
             outputFile << rltTmp.t << "\t";
             outputFile << rltTmp.p << "\t";
-            outputFile << rltArrP[rltArrP[i].rank].p << "\n";
+            outputFile << rltArrP[rltArrP[i].rank].pq << "\n";
             outputFile.flush();
         }
         inputBinFile.close();

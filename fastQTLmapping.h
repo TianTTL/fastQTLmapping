@@ -24,12 +24,12 @@ struct fitRlt {
 // structure of partial of linear regression result
 struct fitRltPart {
     uint8_t level;
-    double p;
+    double pq;
     uint64_t rank;
 };
 
 // global variables
-string VERSION="0.9.5";
+string VERSION="0.9.6";
 string omics1FileName, omics2FileName, outputFileName, rplFileName = "NA";
 string covarFileName;
 bool bfileFlag1 = false, bfileFlag2 = false;
