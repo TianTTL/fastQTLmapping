@@ -577,9 +577,9 @@ void inputRplList(string rplFileName, vector<pair<int64_t, int64_t> >& rplList,
     }
 }
 
-// centralize one row of a matrix
+// standardize one row of a matrix
 template <typename T>
-void cntrl(T* omicsData, uint32_t omicsId, 
+void stnd(T* omicsData, uint32_t omicsId, 
            uint32_t sampleSize, 
            vector<float>& rowSD,
            float sdThd, 
@@ -605,7 +605,7 @@ void cntrl(T* omicsData, uint32_t omicsId,
     }
     rowSD[omicsId] = sqrt(rowSDTmp / (sampleSizeCurr - 1));
 
-    // centralization
+    // standardization
     if (rowSD[omicsId] <= sdThd) { // constant variants
         for (uint32_t i = 0; i < sampleSize; i++){
             omicsData[rowHeadPos + i] = 0;
@@ -619,9 +619,9 @@ void cntrl(T* omicsData, uint32_t omicsId,
     }
 }
 
-// quantile based normalization
+// quantile based standardization
 template <typename T>
-void cntrlQuant(T *omicsData, uint32_t omicsId, 
+void stndQuant(T *omicsData, uint32_t omicsId, 
                 uint32_t sampleSize,
                 vector<float>& rowSD, 
                 float sdThd, 
@@ -672,7 +672,7 @@ void cntrlQuant(T *omicsData, uint32_t omicsId,
     // rank
     v_rank = rankSort(v_temp, sampleSize);
 
-    // normalization
+    // standardization
     for (uint32_t i = 0; i < sampleSize; i++) {
         omicsData[rowHeadPos + i] = gsl_cdf_ugaussian_Pinv((v_rank[i] + 0.5) / sampleSizeCurr); // caution: v_rank start from 0!
     }
@@ -739,9 +739,9 @@ fitRlt linearFit(float corr,
                  vector<float>& omics1Sum, vector<float>& omics2Sum, vector<float>& covarSum, 
                  vector<float>& omics1Sqr, vector<float>& omics1OrtgSqrInv, 
                  vector<vector<float> >& omics1DotCov, vector<vector<float> >& omics2DotCov, vector<vector<float> >& CovarInter,
-                 int32_t omics1NormMod, int32_t omics2NormMod, 
-                 vector<float>& omics1Scaling, vector<float>& omics2Scaling, 
-                 vector<float>& omics1RowSDCntrl1, vector<float>& omics2RowSDCntrl1) {
+                 int32_t omics1StdMod, int32_t omics2StdMod, 
+                 vector<float>& omics1RowSDStnd1, vector<float>& omics2RowSDStnd1, 
+                 vector<float>& omics1RowSDStnd2, vector<float>& omics2RowSDStnd2) {
     uint32_t df_r, df_t, sampleSizeCurr;
     vector<uint32_t> NASignMarkCurr; NASignMarkCurr.reserve(sampleSize);
     fitRlt rlt;
@@ -780,11 +780,15 @@ fitRlt linearFit(float corr,
         p = gsl_cdf_tdist_Q(abs(t), df_t) * 2;
         b = omics1OrtgSqrInv[omics1Id] * corr * df_r;
         // fix data scale
-        if (omics1NormMod == 0) {
-            b = b / omics1Scaling[omics1Id];
+        if (omics1StdMod == 0) {
+            b = b / omics1RowSDStnd1[omics1Id] / omics1RowSDStnd2[omics1Id];
+        } else if (omics1StdMod == 1 | omics1StdMod == 2) {
+            b = b / omics1RowSDStnd2[omics1Id];
         }
-        if (omics2NormMod == 0) {
-            b = b * omics2Scaling[omics2Id];
+        if (omics2StdMod == 0) {
+            b = b * omics2RowSDStnd1[omics2Id] * omics2RowSDStnd2[omics2Id];
+        } else if (omics2StdMod == 1 | omics2StdMod == 2) {
+            b = b * omics2RowSDStnd2[omics2Id];
         }
         se = b / t;
     } else {
@@ -861,11 +865,11 @@ fitRlt linearFit(float corr,
         t = b / se;
         p = gsl_cdf_tdist_Q(abs(t), df_t) * 2;
         // fix data scale
-        if (omics1NormMod == 0) {
-            b = b / omics1RowSDCntrl1[omics1Id];
+        if (omics1StdMod == 0) {
+            b = b / omics1RowSDStnd1[omics1Id];
         }
-        if (omics2NormMod == 0) {
-            b = b * omics2RowSDCntrl1[omics2Id];
+        if (omics2StdMod == 0) {
+            b = b * omics2RowSDStnd1[omics2Id];
         }
         se = b / t;
 
@@ -907,7 +911,7 @@ extern vector<double> distLvP;
 extern uint8_t distLvNum;
 
 extern uint32_t threadMaxN;
-extern int32_t omics1NormMod, omics2NormMod;
+extern int32_t omics1StdMod, omics2StdMod;
 extern float PLooseMarg;
 extern uint32_t outPcs;
 extern int32_t helpFlag;
@@ -959,12 +963,12 @@ int main(int argc, char *argv[]) {
         option("--SD") & number("sdThd", sdThd)                       % "standard deviation threshold",
         option("--dl") & numbers("distLv", distLv)     % "distance thresholds for each distance level",
         option("--dlp") & numbers("distLvP", distLvP)   % "P-value thresholds for each distance level",
-        option("--omics1norm")                                 % "normalization model for omics1 data"
-            & (required("zscore").set(omics1NormMod, 1)
-                                 | required("rank").set(omics1NormMod, 2)),
-        option("--omics2norm")                                 % "normalization model for omics2 data"
-            & (required("zscore").set(omics2NormMod, 1)
-                                 | required("rank").set(omics2NormMod, 2)),
+        option("--omics1std")                                 % "standardization model for omics1 data"
+            & (required("zscore").set(omics1StdMod, 1)
+                                 | required("rank").set(omics1StdMod, 2)),
+        option("--omics2std")                                 % "standardization model for omics2 data"
+            & (required("zscore").set(omics2StdMod, 1)
+                                 | required("rank").set(omics2StdMod, 2)),
         option("--chunk") & value("chunkSize", chunkSize)             % "dimension of splitting chunk"
     );
 
@@ -976,12 +980,12 @@ int main(int argc, char *argv[]) {
         option("--MR") & number("msRtThd", msRtThd)                         % "missing rate threshold",
         option("--SD") & number("sdThd", sdThd)                       % "standard deviation threshold",
         option("--dl") & numbers("distLv", distLv)     % "distance thresholds for each distance level",
-        option("--omics1norm")                                 % "normalization model for omics1 data"
-            & (required("zscore").set(omics1NormMod, 1)
-                                 | required("rank").set(omics1NormMod, 2)),
-        option("--omics2norm")                                 % "normalization model for omics2 data"
-            & (required("zscore").set(omics2NormMod, 1)
-                                 | required("rank").set(omics2NormMod, 2)),
+        option("--omics1std")                                 % "standardization model for omics1 data"
+            & (required("zscore").set(omics1StdMod, 1)
+                                 | required("rank").set(omics1StdMod, 2)),
+        option("--omics2std")                                 % "standardization model for omics2 data"
+            & (required("zscore").set(omics2StdMod, 1)
+                                 | required("rank").set(omics2StdMod, 2)),
          option("--rpl") & value("rplFileName", rplFileName)             % "replication list file path"
     );
 
@@ -1321,15 +1325,15 @@ int discModeProc() {
         oss << "  omics 1 is in PLINK binary format\n";
     }
     oss << "  omics 1 variate number : " << omics1Num << endl;
-    switch (omics1NormMod) {
+    switch (omics1StdMod) {
         case 0 : 
-            oss << "  not normalizing omics1 data\n";
+            oss << "  not standardizing omics1 data\n";
             break;
         case 1 : 
-            oss << "  normalizing omics1 data by z-score\n";
+            oss << "  standardizing omics1 data by z-score\n";
             break;
         case 2 : 
-            oss << "  normalizing omics1 data by rank-based\n";
+            oss << "  standardizing omics1 data by rank-based\n";
             break;
         default : 
             break;
@@ -1340,15 +1344,15 @@ int discModeProc() {
         oss << "  omics 2 is in PLINK binary format\n";
     }
     oss << "  omics 2 variate number : " << omics2Num << endl;
-    switch (omics2NormMod) {
+    switch (omics2StdMod) {
         case 0 : 
-            oss << "  not normalizing omics2 data\n";
+            oss << "  not standardizing omics2 data\n";
             break;
         case 1 : 
-            oss << "  normalizing omics2 data by z-score\n";
+            oss << "  standardizing omics2 data by z-score\n";
             break;
         case 2 : 
-            oss << "  normalizing omics2 data by rank-based\n";
+            oss << "  standardizing omics2 data by rank-based\n";
             break;
         default : 
             break;
@@ -1479,18 +1483,16 @@ int discModeProc() {
     string* dataArea = new string[max(omics1ChunkStrideAllc, omics2ChunkStrideAllc)];
 
     // assign precompute
-    vector<float> omics1RowSDCntrl1(omics1ChunkStrideAllc, 1);
-    vector<float> omics2RowSDCntrl1(omics2ChunkStrideAllc, 1);
+    vector<float> omics1RowSDStnd1(omics1ChunkStrideAllc, 1);
+    vector<float> omics2RowSDStnd1(omics2ChunkStrideAllc, 1);
     float* omics1DataOrtg = (float*) mkl_malloc(sizeof(float) * omics1ChunkStrideAllc * sampleSize, 64);
     float* omics2DataOrtg = (float*) mkl_malloc(sizeof(float) * omics2ChunkStrideAllc * sampleSize, 64);
-    vector<float> covarRowSDCntrl1(covarNum);
+    vector<float> covarRowSDStnd1(covarNum);
     float* covarDataT = (float*) mkl_malloc(sizeof(float) * sampleSize * covarNum, 64);
     float *tau = new float[covarNum];
-    float* covarNormSqr = (float*) mkl_malloc(sizeof(float) * sampleSize * sampleSize, 64);
-    vector<float> omics1RowSDCntrl2(omics1ChunkStrideAllc, 1);
-    vector<float> omics2RowSDCntrl2(omics2ChunkStrideAllc, 1);
-    vector<float> omics1Scaling(omics1ChunkStrideAllc, 1);
-    vector<float> omics2Scaling(omics2ChunkStrideAllc, 1);
+    float* covarStdSqr = (float*) mkl_malloc(sizeof(float) * sampleSize * sampleSize, 64);
+    vector<float> omics1RowSDStnd2(omics1ChunkStrideAllc, 1);
+    vector<float> omics2RowSDStnd2(omics2ChunkStrideAllc, 1);
     vector<float> omics1Sum(omics1ChunkStrideAllc, 0);
     vector<float> omics1Sqr(omics1ChunkStrideAllc);
     vector<float> omics1OrtgSqrInv(omics1ChunkStrideAllc);
@@ -1536,10 +1538,10 @@ int discModeProc() {
         
         // precompute covar data
         if (covarNum > 0) {
-            // first centralization of covariates
+            // first standardization of covariates
 #           pragma omp for
             for (uint32_t i = 0; i < covarNum; i++) {
-                cntrl(covarData, i, sampleSize, covarRowSDCntrl1, sdThd, NASignMarkC);
+                stnd(covarData, i, sampleSize, covarRowSDStnd1, sdThd, NASignMarkC);
             }
 
 #           pragma omp single
@@ -1555,7 +1557,7 @@ int discModeProc() {
                 // projection
                 mkl_set_num_threads_local(nthreads); // Specifies the number of threads for MKL
                 cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, sampleSize, sampleSize, covarNum, 
-                    1, covarDataT, covarNum, covarDataT, covarNum, 0, covarNormSqr, sampleSize);
+                    1, covarDataT, covarNum, covarDataT, covarNum, 0, covarStdSqr, sampleSize);
                 mkl_set_num_threads_local(0); // reset the thread-local number to global number
             }
         }
@@ -1639,161 +1641,111 @@ int discModeProc() {
                 //     dualOutput(oss, outputLogFile, std::cout);
                 // }
 
-                // orthogonal projection start
+                // standardization & orthogonal projection start
+                // omics 1
                 if (o2Chunk == 0) {
-                    // first centralization of first omics
+                    // first standardization according to user setting
+                    // StdMod = 0:Stnd / 1:Stnd / 2:StndQuant
 #                   pragma omp for 
                     for (uint32_t i = 0; i < omics1ChunkStride; i++) {
-                        cntrl(omics1Data, i, sampleSize, omics1RowSDCntrl1, sdThd, NASignMark1);
+                        if (omics1StdMod == 0 | omics1StdMod == 1) {
+                            stnd(omics1Data, i, sampleSize, omics1RowSDStnd1, sdThd, NASignMark1);
+                        } else if (omics1StdMod == 2) {
+                            stndQuant(omics1Data, i, sampleSize, omics1RowSDStnd1, sdThd, NASignMark1);
+                        }
                     }
 
                     // generate orthogonal omics data and intermediate variables
 #                   pragma omp single
                     {
                         copy(omics1Data, omics1Data + omics1ChunkStride * sampleSize, omics1DataOrtg);
-                    }                
+                    }
+                    // projection
                     if (covarNum > 0) {
 #                       pragma omp single
                         {
-                            // projection
                             mkl_set_num_threads_local(nthreads); // Specifies the number of threads for MKL
                             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, omics1ChunkStride, sampleSize, sampleSize, 
-                                -1, omics1Data, sampleSize, covarNormSqr, sampleSize, 1, omics1DataOrtg, sampleSize);
+                                -1, omics1Data, sampleSize, covarStdSqr, sampleSize, 1, omics1DataOrtg, sampleSize);
                             mkl_set_num_threads_local(0); // reset the thread-local number to global number
                         }
                     }
                     
-                    // second centralization for origin omics data
-                    // NormMod = 0 : not process/1 : cntrl/2 : cntrlQuant
-                    // omics1RowSDCntrl2 is only used as a placeholder here, and will be overwritten later
+                    // second standardization for orthogonal projected omics data
 #                   pragma omp for
                     for (uint32_t i = 0; i < omics1ChunkStride; i++) {
-                        if (omics1NormMod == 1) {
-                            cntrl(omics1Data, i, sampleSize, omics1RowSDCntrl2, sdThd, NASignMark1);
-                        } else if (omics1NormMod == 2) {
-                            cntrlQuant(omics1Data, i, sampleSize, omics1RowSDCntrl2, sdThd, NASignMark1);
-                        }
-                    }
-
-                    // second centralization for orthognal omics data
-                    // NormMod = 0 : cntrl/1 : cntrl/2 : cntrlQuant
-#                   pragma omp for
-                    for (uint32_t i = 0; i < omics1ChunkStride; i++) {
-                        if (omics1NormMod != 2) {
-                            cntrl(omics1DataOrtg, i, sampleSize, omics1RowSDCntrl2, sdThd, NASignMark1);
-                        } else {
-                            cntrlQuant(omics1DataOrtg, i, sampleSize, omics1RowSDCntrl2, sdThd, NASignMark1);
-                        }
-                    }
-                    // Scalings of beta coefficents for orthognal omics data
-                    // if user do not need to centralize the variates, we should restore the coeffecient to the original scale
-#                   pragma omp single 
-                    {
-                        if (omics1NormMod == 0) {
-                            for (uint32_t i = 0; i < omics1ChunkStride; i++) {
-                                omics1Scaling[i] = omics1RowSDCntrl1[i] * omics1RowSDCntrl2[i];
-                            }
-                        }
+                        stnd(omics1DataOrtg, i, sampleSize, omics1RowSDStnd2, sdThd, NASignMark1);
                     }
                     
                     // preprocess for linear model solver
 #                   pragma omp single 
                     {
                         for (uint32_t i = 0; i < omics1ChunkStride; i++) {
+                            // row sum of original omics data
                             for (uint32_t j = i * sampleSize; j < (i + 1) * sampleSize; j++) {
                                 omics1Sum[i] += omics1Data[j];
                             }
+                            // row sum of squres of original omics data
                             omics1Sqr[i] = cblas_sdot(sampleSize, &omics1Data[i * sampleSize], 1, &omics1Data[i * sampleSize], 1);
+                            // row sum of squres of orthogonal projected omics data
                             omics1OrtgSqrInv[i] = 1 / cblas_sdot(sampleSize, &omics1DataOrtg[i * sampleSize], 1, &omics1DataOrtg[i * sampleSize], 1);
-                        }
-                    }
-
-                    // calculate inner product between omics data and covariates
-#                   pragma omp single 
-                    {
-                        for (uint32_t i = 0; i < covarNum; i++) {
-                            for (uint32_t j = 0; j < omics1ChunkStride; j++) {
-                                omics1DotCov[j][i] = cblas_sdot(sampleSize, &omics1Data[j * sampleSize], 1, &covarData[i * sampleSize], 1);
+                            // inner product between omics data and covariates
+                            for (uint32_t j = 0; j < covarNum; j++) {
+                                omics1DotCov[i][j] = cblas_sdot(sampleSize, &omics1Data[i * sampleSize], 1, &covarData[j * sampleSize], 1);
                             }
                         }
                     }
                 }
 
-                // first centralization of second omics
-#               pragma omp for
+                // omics 2
+                // first standardization according to user setting
+                // StdMod = 0:Stnd / 1:Stnd / 2:StndQuant
+#               pragma omp for 
                 for (uint32_t i = 0; i < omics2ChunkStride; i++) {
-                    cntrl(omics2Data, i, sampleSize, omics2RowSDCntrl1, sdThd, NASignMark2);
+                    if (omics2StdMod == 0 | omics2StdMod == 1) {
+                        stnd(omics2Data, i, sampleSize, omics2RowSDStnd1, sdThd, NASignMark2);
+                    } else if (omics2StdMod == 2) {
+                        stndQuant(omics2Data, i, sampleSize, omics2RowSDStnd1, sdThd, NASignMark2);
+                    }
                 }
 
                 // generate orthogonal omics data and intermediate variables
 #               pragma omp single
                 {
                     copy(omics2Data, omics2Data + omics2ChunkStride * sampleSize, omics2DataOrtg);
-                }          
+                }
+                // projection
                 if (covarNum > 0) {
 #                   pragma omp single
                     {
-                        // projection
                         mkl_set_num_threads_local(nthreads); // Specifies the number of threads for MKL
                         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, omics2ChunkStride, sampleSize, sampleSize, 
-                            -1, omics2Data, sampleSize, covarNormSqr, sampleSize, 1, omics2DataOrtg, sampleSize);
+                            -1, omics2Data, sampleSize, covarStdSqr, sampleSize, 1, omics2DataOrtg, sampleSize);
                         mkl_set_num_threads_local(0); // reset the thread-local number to global number
                     }
                 }
                 
-                // second centralization for origin omics data
-                // NormMod = 0 : not process/1 : cntrl/2 : cntrlQuant
-                // omics2RowSDCntrl2 is only used as a placeholder here, and will be overwritten later
+                // second standardization for orthogonal projected omics data
 #               pragma omp for
                 for (uint32_t i = 0; i < omics2ChunkStride; i++) {
-                    if (omics2NormMod == 1) {
-                        cntrl(omics2Data, i, sampleSize, omics2RowSDCntrl2, sdThd, NASignMark2);
-                    } else if (omics2NormMod == 2) {
-                        cntrlQuant(omics2Data, i, sampleSize, omics2RowSDCntrl2, sdThd, NASignMark2);
-                    }
+                    stnd(omics2DataOrtg, i, sampleSize, omics2RowSDStnd2, sdThd, NASignMark2);
                 }
-
-                // second centralization for orthognal omics data
-                // NormMod = 0 : cntrl/1 : cntrl/2 : cntrlQuant
-#               pragma omp for
-                for (uint32_t i = 0; i < omics2ChunkStride; i++) {
-                    if (omics2NormMod != 2) {
-                        cntrl(omics2DataOrtg, i, sampleSize, omics2RowSDCntrl2, sdThd, NASignMark2);
-                    } else {
-                        cntrlQuant(omics2DataOrtg, i, sampleSize, omics2RowSDCntrl2, sdThd, NASignMark2);
-                    }
-                }
-                // Scalings of beta coefficents for orthognal omics data
-                // if user do not need to centralize the variates, we should restore the coeffecient to the original scale
-#               pragma omp single 
-                {
-                    if (omics2NormMod == 0) {
-                        for (uint32_t i = 0; i < omics2ChunkStride; i++) {
-                            omics2Scaling[i] = omics2RowSDCntrl1[i] * omics2RowSDCntrl2[i];
-                        }
-                    }
-                }
-
+                
                 // preprocess for linear model solver
 #               pragma omp single 
                 {
                     for (uint32_t i = 0; i < omics2ChunkStride; i++) {
+                        // row sum of original omics data
                         for (uint32_t j = i * sampleSize; j < (i + 1) * sampleSize; j++) {
                             omics2Sum[i] += omics2Data[j];
                         }
-                    }
-                }
-
-                // calculate inner product between omics data and covariates
-#               pragma omp single 
-                {
-                    for (uint32_t i = 0; i < covarNum; i++) {
-                        for (uint32_t j = 0; j < omics2ChunkStride; j++) {
-                            omics2DotCov[j][i] = cblas_sdot(sampleSize, &omics2Data[j * sampleSize], 1, &covarData[i * sampleSize], 1);
+                        // inner product between omics data and covariates
+                        for (uint32_t j = 0; j < covarNum; j++) {
+                            omics2DotCov[i][j] = cblas_sdot(sampleSize, &omics2Data[i * sampleSize], 1, &covarData[j * sampleSize], 1);
                         }
                     }
                 }
-                // orthogonal projection end
+                // standardization & orthogonal projection end
 
                 // clocking
                 // if (tid == 0) {
@@ -1943,9 +1895,9 @@ int discModeProc() {
                                       omics1Sum, omics2Sum, covarSum, 
                                       omics1Sqr, omics1OrtgSqrInv, 
                                       omics1DotCov, omics2DotCov, CovarInter,
-                                      omics1NormMod, omics2NormMod, 
-                                      omics1Scaling, omics2Scaling, 
-                                      omics1RowSDCntrl1, omics2RowSDCntrl1);
+                                      omics1StdMod, omics2StdMod, 
+                                      omics1RowSDStnd1, omics2RowSDStnd1, 
+                                      omics1RowSDStnd2, omics2RowSDStnd2);
                             if (rltTmp.p <= distLvP[levelCurr] && rltTmp.status == 0) {
                                 rltArr.push_back(rltTmp);
                             }

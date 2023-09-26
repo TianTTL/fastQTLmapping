@@ -29,7 +29,7 @@ struct fitRltPart {
 };
 
 // global variables
-string VERSION="0.9.6";
+string VERSION="0.9.7";
 string omics1FileName, omics2FileName, outputFileName, rplFileName = "NA";
 string covarFileName;
 bool bfileFlag1 = false, bfileFlag2 = false;
@@ -46,7 +46,7 @@ vector<double> distLvP;
 uint8_t distLvNum;
 
 uint32_t threadMaxN = 1;
-int32_t omics1NormMod = 0, omics2NormMod = 0;
+int32_t omics1StdMod = 0, omics2StdMod = 0;
 float PLooseMarg = 100;
 uint32_t outPcs = 4;
 int32_t helpFlag = 0;
@@ -90,13 +90,13 @@ int64_t binarySearchDec(ForwardIterator head, ForwardIterator tail, const T& val
 void inputRplList(string rplFileName, vector<pair<int64_t, int64_t> >& rplList, 
                   vector<string>& omics1Name, vector<string>& omics2Name, uint32_t threadMaxN);
 template <typename T>
-void cntrl(T* omicsData, uint32_t omicsId, 
+void stnd(T* omicsData, uint32_t omicsId, 
            uint32_t sampleSize, 
            vector<double>& rowSD,
            double sdThd, 
            vector<vector<uint32_t> >& NASignMarkCurr);
 template <typename T>
-void cntrlQuant(T *omicsData, uint32_t omicsId, 
+void stndQuant(T *omicsData, uint32_t omicsId, 
                 uint32_t sampleSize,
                 vector<double>& rowSD, 
                 double sdThd, 
@@ -114,9 +114,9 @@ fitRlt linearFit(float corr,
                  vector<float>& omics1Sum, vector<float>& omics2Sum, vector<float>& covarSum, 
                  vector<float>& omics1Sqr, vector<float>& omics1OrtgSqrInv, 
                  vector<vector<float> >& omics1DotCov, vector<vector<float> >& omics2DotCov, vector<vector<float> >& CovarInter,
-                 int32_t omics1NormMod, int32_t omics2NormMod, 
-                 vector<float>& omics1Scaling, vector<float>& omics2Scaling, 
-                 vector<float>& omics1RowSDCntrl1, vector<float>& omics2RowSDCntrl1);
+                 int32_t omics1StdMod, int32_t omics2StdMod, 
+                 vector<float>& omics1RowSDStnd1, vector<float>& omics2RowSDStnd1, 
+                 vector<float>& omics1RowSDStnd2, vector<float>& omics2RowSDStnd2);
 void rCriticalValueCalc(double P, uint32_t sampleSize, double &rCriticalValue);
 }  // namespace meqtllib
 
