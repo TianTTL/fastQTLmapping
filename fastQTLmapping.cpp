@@ -577,9 +577,9 @@ void inputRplList(string rplFileName, vector<pair<int64_t, int64_t> >& rplList,
     }
 }
 
-// standardize one row of a matrix
+// normalize one row of a matrix
 template <typename T>
-void stnd(T* omicsData, uint32_t omicsId, 
+void norm(T* omicsData, uint32_t omicsId, 
            uint32_t sampleSize, 
            vector<float>& rowSD,
            float sdThd, 
@@ -605,7 +605,7 @@ void stnd(T* omicsData, uint32_t omicsId,
     }
     rowSD[omicsId] = sqrt(rowSDTmp / (sampleSizeCurr - 1));
 
-    // standardization
+    // normalization
     if (rowSD[omicsId] <= sdThd) { // constant variants
         for (uint32_t i = 0; i < sampleSize; i++){
             omicsData[rowHeadPos + i] = 0;
@@ -619,9 +619,9 @@ void stnd(T* omicsData, uint32_t omicsId,
     }
 }
 
-// quantile based standardization
+// quantile based normalization
 template <typename T>
-void stndQuant(T *omicsData, uint32_t omicsId, 
+void normQuant(T *omicsData, uint32_t omicsId, 
                 uint32_t sampleSize,
                 vector<float>& rowSD, 
                 float sdThd, 
@@ -672,7 +672,7 @@ void stndQuant(T *omicsData, uint32_t omicsId,
     // rank
     v_rank = rankSort(v_temp, sampleSize);
 
-    // standardization
+    // normalization
     for (uint32_t i = 0; i < sampleSize; i++) {
         omicsData[rowHeadPos + i] = gsl_cdf_ugaussian_Pinv((v_rank[i] + 0.5) / sampleSizeCurr); // caution: v_rank start from 0!
     }
@@ -739,9 +739,9 @@ fitRlt linearFit(float corr,
                  vector<float>& omics1Sum, vector<float>& omics2Sum, vector<float>& covarSum, 
                  vector<float>& omics1Sqr, vector<float>& omics1OrtgSqrInv, 
                  vector<vector<float> >& omics1DotCov, vector<vector<float> >& omics2DotCov, vector<vector<float> >& CovarInter,
-                 int32_t omics1StdMod, int32_t omics2StdMod, 
-                 vector<float>& omics1RowSDStnd1, vector<float>& omics2RowSDStnd1, 
-                 vector<float>& omics1RowSDStnd2, vector<float>& omics2RowSDStnd2) {
+                 int32_t omics1NormMod, int32_t omics2NormMod, 
+                 vector<float>& omics1RowSDNorm1, vector<float>& omics2RowSDNorm1, 
+                 vector<float>& omics1RowSDNorm2, vector<float>& omics2RowSDNorm2) {
     uint32_t df_r, df_t, sampleSizeCurr;
     vector<uint32_t> NASignMarkCurr; NASignMarkCurr.reserve(sampleSize);
     fitRlt rlt;
@@ -780,15 +780,15 @@ fitRlt linearFit(float corr,
         p = gsl_cdf_tdist_Q(abs(t), df_t) * 2;
         b = omics1OrtgSqrInv[omics1Id] * corr * df_r;
         // fix data scale
-        if (omics1StdMod == 0) {
-            b = b / omics1RowSDStnd1[omics1Id] / omics1RowSDStnd2[omics1Id];
-        } else if (omics1StdMod == 1 | omics1StdMod == 2) {
-            b = b / omics1RowSDStnd2[omics1Id];
+        if (omics1NormMod == 0) {
+            b = b / omics1RowSDNorm1[omics1Id] / omics1RowSDNorm2[omics1Id];
+        } else if (omics1NormMod == 1 | omics1NormMod == 2) {
+            b = b / omics1RowSDNorm2[omics1Id];
         }
-        if (omics2StdMod == 0) {
-            b = b * omics2RowSDStnd1[omics2Id] * omics2RowSDStnd2[omics2Id];
-        } else if (omics2StdMod == 1 | omics2StdMod == 2) {
-            b = b * omics2RowSDStnd2[omics2Id];
+        if (omics2NormMod == 0) {
+            b = b * omics2RowSDNorm1[omics2Id] * omics2RowSDNorm2[omics2Id];
+        } else if (omics2NormMod == 1 | omics2NormMod == 2) {
+            b = b * omics2RowSDNorm2[omics2Id];
         }
         se = b / t;
     } else {
@@ -865,11 +865,11 @@ fitRlt linearFit(float corr,
         t = b / se;
         p = gsl_cdf_tdist_Q(abs(t), df_t) * 2;
         // fix data scale
-        if (omics1StdMod == 0) {
-            b = b / omics1RowSDStnd1[omics1Id];
+        if (omics1NormMod == 0) {
+            b = b / omics1RowSDNorm1[omics1Id];
         }
-        if (omics2StdMod == 0) {
-            b = b * omics2RowSDStnd1[omics2Id];
+        if (omics2NormMod == 0) {
+            b = b * omics2RowSDNorm1[omics2Id];
         }
         se = b / t;
 
@@ -911,7 +911,7 @@ extern vector<double> distLvP;
 extern uint8_t distLvNum;
 
 extern uint32_t threadMaxN;
-extern int32_t omics1StdMod, omics2StdMod;
+extern int32_t omics1NormMod, omics2NormMod;
 extern float PLooseMarg;
 extern uint32_t outPcs;
 extern int32_t helpFlag;
@@ -963,12 +963,12 @@ int main(int argc, char *argv[]) {
         option("--SD") & number("sdThd", sdThd)                       % "standard deviation threshold",
         option("--dl") & numbers("distLv", distLv)     % "distance thresholds for each distance level",
         option("--dlp") & numbers("distLvP", distLvP)   % "P-value thresholds for each distance level",
-        option("--omics1std")                                 % "standardization model for omics1 data"
-            & (required("zscore").set(omics1StdMod, 1)
-                                 | required("rank").set(omics1StdMod, 2)),
-        option("--omics2std")                                 % "standardization model for omics2 data"
-            & (required("zscore").set(omics2StdMod, 1)
-                                 | required("rank").set(omics2StdMod, 2)),
+        option("--omics1norm")                                 % "normalization model for omics1 data"
+            & (required("zscore").set(omics1NormMod, 1)
+                                 | required("rank").set(omics1NormMod, 2)),
+        option("--omics2norm")                                 % "normalization model for omics2 data"
+            & (required("zscore").set(omics2NormMod, 1)
+                                 | required("rank").set(omics2NormMod, 2)),
         option("--chunk") & value("chunkSize", chunkSize)             % "dimension of splitting chunk"
     );
 
@@ -980,12 +980,12 @@ int main(int argc, char *argv[]) {
         option("--MR") & number("msRtThd", msRtThd)                         % "missing rate threshold",
         option("--SD") & number("sdThd", sdThd)                       % "standard deviation threshold",
         option("--dl") & numbers("distLv", distLv)     % "distance thresholds for each distance level",
-        option("--omics1std")                                 % "standardization model for omics1 data"
-            & (required("zscore").set(omics1StdMod, 1)
-                                 | required("rank").set(omics1StdMod, 2)),
-        option("--omics2std")                                 % "standardization model for omics2 data"
-            & (required("zscore").set(omics2StdMod, 1)
-                                 | required("rank").set(omics2StdMod, 2)),
+        option("--omics1norm")                                 % "normalization model for omics1 data"
+            & (required("zscore").set(omics1NormMod, 1)
+                                 | required("rank").set(omics1NormMod, 2)),
+        option("--omics2norm")                                 % "normalization model for omics2 data"
+            & (required("zscore").set(omics2NormMod, 1)
+                                 | required("rank").set(omics2NormMod, 2)),
          option("--rpl") & value("rplFileName", rplFileName)             % "replication list file path"
     );
 
@@ -1325,15 +1325,15 @@ int discModeProc() {
         oss << "  omics 1 is in PLINK binary format\n";
     }
     oss << "  omics 1 variate number : " << omics1Num << endl;
-    switch (omics1StdMod) {
+    switch (omics1NormMod) {
         case 0 : 
-            oss << "  not standardizing omics1 data\n";
+            oss << "  not normalize omics1 data\n";
             break;
         case 1 : 
-            oss << "  standardizing omics1 data by z-score\n";
+            oss << "  normalize omics1 data by z-score\n";
             break;
         case 2 : 
-            oss << "  standardizing omics1 data by rank-based\n";
+            oss << "  normalize omics1 data by rank-based\n";
             break;
         default : 
             break;
@@ -1344,15 +1344,15 @@ int discModeProc() {
         oss << "  omics 2 is in PLINK binary format\n";
     }
     oss << "  omics 2 variate number : " << omics2Num << endl;
-    switch (omics2StdMod) {
+    switch (omics2NormMod) {
         case 0 : 
-            oss << "  not standardizing omics2 data\n";
+            oss << "  not normalize omics2 data\n";
             break;
         case 1 : 
-            oss << "  standardizing omics2 data by z-score\n";
+            oss << "  normalize omics2 data by z-score\n";
             break;
         case 2 : 
-            oss << "  standardizing omics2 data by rank-based\n";
+            oss << "  normalize omics2 data by rank-based\n";
             break;
         default : 
             break;
@@ -1483,16 +1483,16 @@ int discModeProc() {
     string* dataArea = new string[max(omics1ChunkStrideAllc, omics2ChunkStrideAllc)];
 
     // assign precompute
-    vector<float> omics1RowSDStnd1(omics1ChunkStrideAllc, 1);
-    vector<float> omics2RowSDStnd1(omics2ChunkStrideAllc, 1);
+    vector<float> omics1RowSDNorm1(omics1ChunkStrideAllc, 1);
+    vector<float> omics2RowSDNorm1(omics2ChunkStrideAllc, 1);
     float* omics1DataOrtg = (float*) mkl_malloc(sizeof(float) * omics1ChunkStrideAllc * sampleSize, 64);
     float* omics2DataOrtg = (float*) mkl_malloc(sizeof(float) * omics2ChunkStrideAllc * sampleSize, 64);
-    vector<float> covarRowSDStnd1(covarNum);
+    vector<float> covarRowSDNorm1(covarNum);
     float* covarDataT = (float*) mkl_malloc(sizeof(float) * sampleSize * covarNum, 64);
     float *tau = new float[covarNum];
     float* covarStdSqr = (float*) mkl_malloc(sizeof(float) * sampleSize * sampleSize, 64);
-    vector<float> omics1RowSDStnd2(omics1ChunkStrideAllc, 1);
-    vector<float> omics2RowSDStnd2(omics2ChunkStrideAllc, 1);
+    vector<float> omics1RowSDNorm2(omics1ChunkStrideAllc, 1);
+    vector<float> omics2RowSDNorm2(omics2ChunkStrideAllc, 1);
     vector<float> omics1Sum(omics1ChunkStrideAllc, 0);
     vector<float> omics1Sqr(omics1ChunkStrideAllc);
     vector<float> omics1OrtgSqrInv(omics1ChunkStrideAllc);
@@ -1538,10 +1538,10 @@ int discModeProc() {
         
         // precompute covar data
         if (covarNum > 0) {
-            // first standardization of covariates
+            // first normalization of covariates
 #           pragma omp for
             for (uint32_t i = 0; i < covarNum; i++) {
-                stnd(covarData, i, sampleSize, covarRowSDStnd1, sdThd, NASignMarkC);
+                norm(covarData, i, sampleSize, covarRowSDNorm1, sdThd, NASignMarkC);
             }
 
 #           pragma omp single
@@ -1641,17 +1641,17 @@ int discModeProc() {
                 //     dualOutput(oss, outputLogFile, std::cout);
                 // }
 
-                // standardization & orthogonal projection start
+                // normalization & orthogonal projection start
                 // omics 1
                 if (o2Chunk == 0) {
-                    // first standardization according to user setting
-                    // StdMod = 0:Stnd / 1:Stnd / 2:StndQuant
+                    // first normalization according to user setting
+                    // NormMod = 0:norm / 1:norm / 2:normQuant
 #                   pragma omp for 
                     for (uint32_t i = 0; i < omics1ChunkStride; i++) {
-                        if (omics1StdMod == 0 | omics1StdMod == 1) {
-                            stnd(omics1Data, i, sampleSize, omics1RowSDStnd1, sdThd, NASignMark1);
-                        } else if (omics1StdMod == 2) {
-                            stndQuant(omics1Data, i, sampleSize, omics1RowSDStnd1, sdThd, NASignMark1);
+                        if (omics1NormMod == 0 | omics1NormMod == 1) {
+                            norm(omics1Data, i, sampleSize, omics1RowSDNorm1, sdThd, NASignMark1);
+                        } else if (omics1NormMod == 2) {
+                            normQuant(omics1Data, i, sampleSize, omics1RowSDNorm1, sdThd, NASignMark1);
                         }
                     }
 
@@ -1671,10 +1671,10 @@ int discModeProc() {
                         }
                     }
                     
-                    // second standardization for orthogonal projected omics data
+                    // second normalization for orthogonal projected omics data
 #                   pragma omp for
                     for (uint32_t i = 0; i < omics1ChunkStride; i++) {
-                        stnd(omics1DataOrtg, i, sampleSize, omics1RowSDStnd2, sdThd, NASignMark1);
+                        norm(omics1DataOrtg, i, sampleSize, omics1RowSDNorm2, sdThd, NASignMark1);
                     }
                     
                     // preprocess for linear model solver
@@ -1698,14 +1698,14 @@ int discModeProc() {
                 }
 
                 // omics 2
-                // first standardization according to user setting
-                // StdMod = 0:Stnd / 1:Stnd / 2:StndQuant
+                // first normalization according to user setting
+                // NormMod = 0:norm / 1:norm / 2:normQuant
 #               pragma omp for 
                 for (uint32_t i = 0; i < omics2ChunkStride; i++) {
-                    if (omics2StdMod == 0 | omics2StdMod == 1) {
-                        stnd(omics2Data, i, sampleSize, omics2RowSDStnd1, sdThd, NASignMark2);
-                    } else if (omics2StdMod == 2) {
-                        stndQuant(omics2Data, i, sampleSize, omics2RowSDStnd1, sdThd, NASignMark2);
+                    if (omics2NormMod == 0 | omics2NormMod == 1) {
+                        norm(omics2Data, i, sampleSize, omics2RowSDNorm1, sdThd, NASignMark2);
+                    } else if (omics2NormMod == 2) {
+                        normQuant(omics2Data, i, sampleSize, omics2RowSDNorm1, sdThd, NASignMark2);
                     }
                 }
 
@@ -1725,10 +1725,10 @@ int discModeProc() {
                     }
                 }
                 
-                // second standardization for orthogonal projected omics data
+                // second normalization for orthogonal projected omics data
 #               pragma omp for
                 for (uint32_t i = 0; i < omics2ChunkStride; i++) {
-                    stnd(omics2DataOrtg, i, sampleSize, omics2RowSDStnd2, sdThd, NASignMark2);
+                    norm(omics2DataOrtg, i, sampleSize, omics2RowSDNorm2, sdThd, NASignMark2);
                 }
                 
                 // preprocess for linear model solver
@@ -1745,7 +1745,7 @@ int discModeProc() {
                         }
                     }
                 }
-                // standardization & orthogonal projection end
+                // normalization & orthogonal projection end
 
                 // clocking
                 // if (tid == 0) {
@@ -1895,9 +1895,9 @@ int discModeProc() {
                                       omics1Sum, omics2Sum, covarSum, 
                                       omics1Sqr, omics1OrtgSqrInv, 
                                       omics1DotCov, omics2DotCov, CovarInter,
-                                      omics1StdMod, omics2StdMod, 
-                                      omics1RowSDStnd1, omics2RowSDStnd1, 
-                                      omics1RowSDStnd2, omics2RowSDStnd2);
+                                      omics1NormMod, omics2NormMod, 
+                                      omics1RowSDNorm1, omics2RowSDNorm1, 
+                                      omics1RowSDNorm2, omics2RowSDNorm2);
                             if (rltTmp.p <= distLvP[levelCurr] && rltTmp.status == 0) {
                                 rltArr.push_back(rltTmp);
                             }
