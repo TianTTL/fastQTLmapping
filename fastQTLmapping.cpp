@@ -930,7 +930,7 @@ void dualOutput(std::ostringstream &oss, std::ostream &os1, std::ostream &os2) {
     oss.str(""); oss.clear(); 
 }
 
-int preAnalModeProc();
+int preAnalysisModeProc();
 int discModeProc();
 
 int main(int argc, char *argv[]) {
@@ -946,7 +946,7 @@ int main(int argc, char *argv[]) {
         option("-h", "--help").set(helpFlag, 1)                                          % "show help"
     );
 
-    auto preAnalMode = "loci-pairs counting mode:" % (
+    auto preAnalysisMode = "loci-pairs counting mode:" % (
         command("count").set(modeFlag, 1)                                             % "mode command",
         option("--dl") & numbers("distLv", distLv)     % "distance thresholds for each distance level", 
         option("--FWER") & value("FWER", FWER)                             % "Family-Wise Error Error"
@@ -991,7 +991,7 @@ int main(int argc, char *argv[]) {
 
     auto cli = (
         firstOpt,
-        preAnalMode | discMode //| rplMode
+        preAnalysisMode | discMode //| rplMode
     );
 
     // output man
@@ -1119,7 +1119,7 @@ int main(int argc, char *argv[]) {
 
     int FQMstat;
     if (modeFlag == 1) {
-        FQMstat = preAnalModeProc();
+        FQMstat = preAnalysisModeProc();
     } else if (modeFlag == 2) {
         FQMstat = discModeProc();
     } else if (modeFlag == 3) {
@@ -1132,7 +1132,7 @@ int main(int argc, char *argv[]) {
     return(FQMstat);
 }
 
-int preAnalModeProc() {
+int preAnalysisModeProc() {
     // global starting time stamp 
     double time_start_whole = omp_get_wtime(), time_end;
 
@@ -1244,7 +1244,7 @@ int preAnalModeProc() {
 
     // output counting results
     ofstream outputFile;
-    outputFile.open(outputFileName + ".preAnal");
+    outputFile.open(outputFileName + ".preAnalysis");
     outputFile << setprecision(outPcs);
     for (uint8_t l = 0; l < (distLvNum + 1); l++) { 
         outputFile << "Number of test of distance level " << l + 1 << " : \n\t" << testCnt[l] << endl;
