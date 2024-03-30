@@ -906,7 +906,7 @@ extern double globalP;
 extern float FWER;
 extern float msRtThd;
 
-extern vector<float> distLv;
+extern vector<int64_t> distLv;
 extern vector<double> distLvP;
 extern uint8_t distLvNum;
 
@@ -1211,8 +1211,8 @@ int preAnalysisModeProc() {
         {
             uint32_t offset = (distLvNum + 1) * tid;
             for (uint32_t j = 0 ; j < omics2Num; ++j) {
-                uint64_t lociDist = max(omics1BPST[i] - omics2BPEN[j],
-                                        omics2BPST[j] - omics1BPEN[i]);
+                int64_t lociDist = max(abs(omics1BPST[i] - omics2BPEN[j]),
+                                       abs(omics2BPST[j] - omics1BPEN[i]));
                 if (distLvNum >= 1 &&
                     omics1CHR[i] == omics2CHR[j] && 
                     omics1CHR[i] > 0 && omics2CHR[j] > 0 && 
@@ -1860,8 +1860,8 @@ int discModeProc() {
                         }
 
                         int8_t levelCurr = -1;
-                        uint64_t lociDist = max(omics1BPST[omics1VarGlobal] - omics2BPEN[omics2VarGlobal],
-                                                omics2BPST[omics2VarGlobal] - omics1BPEN[omics1VarGlobal]);
+                        uint64_t lociDist = max(abs(omics1BPST[omics1VarGlobal] - omics2BPEN[omics2VarGlobal]),
+                                                abs(omics2BPST[omics2VarGlobal] - omics1BPEN[omics1VarGlobal]));
                         if (distLvNum >= 1 &&
                             omics1CHR[omics1VarGlobal] == omics2CHR[omics2VarGlobal] && 
                             omics1CHR[omics1VarGlobal] > 0 && omics2CHR[omics2VarGlobal] > 0 && 
@@ -2000,7 +2000,7 @@ int discModeProc() {
 
         double st_mseMin = *min_element(st_mse.begin(), st_mse.end());
         for (uint32_t i = 0; i < st_ll; i++) {
-            if (fabs(st_mse[i] - st_mseMin) < 1e-6 & st_pi0[l] > st_pDens[i]) {
+            if (abs(st_mse[i] - st_mseMin) < 1e-6 & st_pi0[l] > st_pDens[i]) {
                 st_pi0[l] = st_pDens[i];
             }
         }

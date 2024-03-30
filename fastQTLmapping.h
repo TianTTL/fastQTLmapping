@@ -29,7 +29,7 @@ struct fitRltPart {
 };
 
 // global variables
-string VERSION="0.9.7";
+string VERSION="0.9.8_alpha";
 string omics1FileName, omics2FileName, outputFileName, rplFileName = "NA";
 string covarFileName;
 bool bfileFlag1 = false, bfileFlag2 = false;
@@ -41,7 +41,7 @@ float FWER = 0.05;
 float msRtThd = 0.1;
 double sdThd = 1e-6;
 
-vector<float> distLv;
+vector<int64_t> distLv;
 vector<double> distLvP;
 uint8_t distLvNum;
 
