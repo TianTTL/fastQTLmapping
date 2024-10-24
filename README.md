@@ -144,9 +144,9 @@ fastQTLmapping \
  --out testdata/test.rlt \
  --threads 1 \
  discovery \
- --cov testdata/test.covar.data \
+ --cov testdata/test.covar.data --categ 2 \
  --na NA --MR 0.1 \
- --dl 1000000 2000000 --dlp 1 0.9 -p 0.8 \ 
+ --dl 1000000 2000000 --dlp 1 0.9 -p 0.8 \
  --omics1norm zscore --omics2norm rank
 ```
 
