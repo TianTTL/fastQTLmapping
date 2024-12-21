@@ -4,7 +4,7 @@ FastQTLmapping is a computationally efficient, exact, and generic solver for exh
 
 ## Current Version
 
-0.9.7
+0.9.8_alpha
 
 ## Counting Mode
 
