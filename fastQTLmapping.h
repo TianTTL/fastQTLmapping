@@ -29,7 +29,7 @@ struct fitRltPart {
 };
 
 // global variables
-string VERSION="0.9.8_alpha";
+string VERSION="0.9.8";
 string omics1FileName, omics2FileName, outputFileName, rplFileName = "NA";
 string covarFileName;
 bool bfileFlag1 = false, bfileFlag2 = false;
@@ -53,7 +53,7 @@ int32_t helpFlag = 0;
 int32_t modeFlag = 0; // 1 pre-analysis, 2 disc, 3 rpl
 uint32_t chunkSize = 5000;
 
-uint32_t omics1Num, omics2Num, covarNum, sampleSize;
+uint32_t omics1Num, omics2Num, covarNum, sampleSize, sampleSizeAlt;
 ofstream outputLogFile;
 ostringstream oss;
 

@@ -362,6 +362,7 @@ void calcCovarSize(string covarFileName, string NASign, uint32_t sampleSize, uin
             categFlagRef.push_back(rowsCount - 1);
         }
         istringstream is(s);
+        is >> oneItem; // skip covar name
         for (i = 0; i < sampleSize; i++) {
             is >> oneItem;
             if (oneItem == NASign){
@@ -410,6 +411,7 @@ float* inputCovar(string fileName,
             getline(inputFile, s);
         }
         istringstream is(s);
+        is >> oneItem; // skip covar name
         sid = 0;
         for (j = 0; j < sampleSize + covarNANum; j++) {
             is >> oneItem;
@@ -443,6 +445,7 @@ float* inputCovar(string fileName,
     for (i = 0; i < covarNum; i++) {
         getline(inputFile, s);
         istringstream is(s);
+        is >> oneItem; // skip covar name
         sid = 0;
 
         if (categIdx < covarCategNum && categFlag[categIdx] == i) {
@@ -918,7 +921,7 @@ extern int32_t helpFlag;
 extern int32_t modeFlag;
 extern uint32_t chunkSize;
 
-extern uint32_t omics1Num, omics2Num, covarNum, sampleSize;
+extern uint32_t omics1Num, omics2Num, covarNum, sampleSize, sampleSizeAlt;
 extern ofstream outputLogFile;
 extern ostringstream oss;
 
@@ -1156,9 +1159,14 @@ int preAnalysisModeProc() {
         calcInputSize(omics1FileName, sampleSize, omics1Num);
     }
     if (bfileFlag2) { // input plink bfile as second omics
-        calcBfileSize(omics2FileName, sampleSize, omics2Num);
+        calcBfileSize(omics2FileName, sampleSizeAlt, omics2Num);
     } else {
-        calcInputSize(omics2FileName, sampleSize, omics2Num);
+        calcInputSize(omics2FileName, sampleSizeAlt, omics2Num);
+    }
+    if (sampleSize != sampleSizeAlt) {
+        oss << "Error: Sample size of omics 1 and omics 2 are not equal.\n"; 
+        dualOutput(oss, outputLogFile, std::cout);
+        return 1;
     }
     
     // record data scale into log file
@@ -1254,6 +1262,8 @@ int preAnalysisModeProc() {
     // global ending time stamp
     time_end = omp_get_wtime();
     oss << "Whole procedure time used : " << time_end - time_start_whole << " s" << endl << endl; dualOutput(oss, outputLogFile, std::cout);
+
+    return 0;
 }
 
 int discModeProc() {
@@ -1405,16 +1415,10 @@ int discModeProc() {
     // seq(0.05, 0.95, 0.05)
     uint8_t st_ll = 19; // length of lambda
     vector<float> st_lambda(st_ll);
-    // vector<double> st_lambdaRCV(st_ll + 2); // the first element is set to upper bound
-    //                                         // the second element is set to lower bound 
     // ascending lambda
-    generate(st_lambda.begin(), st_lambda.end(), [n = 0.00]() mutable { return n+=0.05; } );
-    // decending lambda correlation critical value
-    // for (uint32_t i = 0; i < st_ll; i++) {
-    //     rCriticalValueCalc(st_lambda[i], sampleSize, covarNum, st_lambdaRCV[i + 1]);
-    // }
-    // st_lambdaRCV[0] = sampleSize; // upper boundary
-    // st_lambdaRCV[st_ll+1] = 0; // lower boundary
+    for (uint8_t i = 0; i < st_ll; ++i) {
+        st_lambda[i] = 0.00 + i * 0.05;
+    }
 
     // header of result file for output file
     ofstream outputBinFile(outputFileName + ".bin", ios::out | ios::binary);
@@ -1428,6 +1432,13 @@ int discModeProc() {
                                categFlag, covarCategNum);
     }
     vector<vector<uint32_t> > NASignMarkC(covarNum, vector<uint32_t>(0)); // NA mark for covarates. in fact it is empty
+
+    // check if number of cov less than number of smaples
+    if (covarNum > sampleSize) {
+        oss << "Error: Number of covariates(include dummy variables) is greater than number of samples. " << endl;
+        dualOutput(oss, outputLogFile, std::cout);
+        return 6;
+    }
     
     // Chunk spliting schedule
     uint32_t omics1ChunkStrideAllc, omics2ChunkStrideAllc, omics1ChunkNum, omics2ChunkNum, chunkNum;

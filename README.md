@@ -4,7 +4,7 @@ FastQTLmapping is a computationally efficient, exact, and generic solver for exh
 
 ## Current Version
 
-0.9.8_alpha
+0.9.8
 
 ## Counting Mode
 
@@ -144,7 +144,7 @@ fastQTLmapping \
  --out testdata/test.rlt \
  --threads 1 \
  discovery \
- --cov testdata/test.covar.data --categ 2 \
+ --cov testdata/test.covar.data --categ 1 \
  --na NA --MR 0.1 \
  --dl 1000000 2000000 --dlp 1 0.9 -p 0.8 \
  --omics1norm zscore --omics2norm rank
@@ -167,6 +167,8 @@ FastQTLmapping provides two normalization methods, Z-value normalization(`zscore
 FastQTLmapping reduces the covariates of the regression model by orthogonalizing $x$ and $y$ respect to $C$ using Gram-Schmidt orthogonalization.([Longley J W, Longley R D, 1997](https://onlinelibrary.wiley.com/doi/abs/10.1002/(SICI)1099-1506(199707/08)4:4%3C295::AID-NLA102%3E3.0.CO;2-D)).
 
 Categorical covariates are converted into dummy variables in the data pre-processing. Dummy Variables act as indicators of the presence or absence of a category in a categorical variable: 0 represents absence while 1 represents presence.  The conversion of categorical variables into dummy variables leads to the formation of the binary matrix where each row represents a particular category.
+
+When processing covariates, FastQTLmapping will perform QR decomposition on the covariate matrix. This process requires that the number of covariates (including dummy variables) does not exceed the number of samples; otherwise, an error will occur. Generally, users do not need to be concerned about such errors, but they may be triggered when there are a large number of categories for categorical covariates.
 
 **Exact Results**
 
