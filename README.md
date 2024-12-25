@@ -32,7 +32,7 @@ FastQTLmapping accepts input files in text format and in Plink binary format. Th
 
 Software environment: x64 processor-based, 64-bit operating system, Linux v3.10.0 and above.
 
-Library: GLIBCXX()
+Library: GLIBCXX(>= 3.4.19)
 
 
 
