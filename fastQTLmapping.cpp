@@ -273,7 +273,7 @@ void input2DfloatParse(std::ifstream& inputFile,
         uint32_t lineLength = dataArea[i].length();
         char s[lineLength]; strcpy(s, dataArea[i].c_str());
         uint32_t s_p = 0;
-        uint64_t rowHeadPos = i * sampleSize;
+        int64_t rowHeadPos = i * sampleSize;
         uint32_t sid = 0;
 
         for (uint32_t j = 0; j < sampleSize + sampleFltNum; j++) {
@@ -588,7 +588,7 @@ void norm(T* omicsData, uint32_t omicsId,
            float sdThd, 
            vector<vector<uint32_t> >& NASignMarkCurr) {
     float rowSumTmp, rowSDTmp, rowMeanTmp;
-    uint64_t rowHeadPos = omicsId * sampleSize;
+    int64_t rowHeadPos = omicsId * sampleSize;
 
     uint32_t sampleSizeCurr = sampleSize - NASignMarkCurr[omicsId].size();
 
@@ -632,7 +632,7 @@ void normQuant(T *omicsData, uint32_t omicsId,
     float rowSumTmp, rowSDTmp, rowMeanTmp;
     vector<T> v_temp(sampleSize);
     vector<float> v_rank(sampleSize);
-    uint64_t rowHeadPos = omicsId * sampleSize;
+    int64_t rowHeadPos = omicsId * sampleSize;
     T maxV;
 
     uint32_t sampleSizeCurr = sampleSize - NASignMarkCurr[omicsId].size();
@@ -1207,8 +1207,8 @@ int preAnalysisModeProc() {
     }
 
     // count the number of test of each distance level
-    vector<uint64_t> testCnt(distLvNum + 1, 0);
-    uint64_t* testCntPrivate = new uint64_t[(distLvNum + 1)*threadMaxN]();
+    vector<int64_t> testCnt(distLvNum + 1, 0);
+    int64_t* testCntPrivate = new int64_t[(distLvNum + 1)*threadMaxN]();
 #   pragma omp parallel num_threads(threadMaxN)
     {
         const int nthreads = omp_get_num_threads();
@@ -1449,7 +1449,7 @@ int discModeProc() {
     chunkNum = omics1ChunkNum * omics2ChunkNum;
 
     // estimating peak memory
-    uint64_t memCons = 
+    int64_t memCons = 
     max(
         (omics1ChunkStrideAllc + omics2ChunkStrideAllc) * sampleSize * (sizeof(float) * 2) + // omics data and orthgnal data
         omics1ChunkStrideAllc * omics2ChunkStrideAllc * sizeof(float) + // gemm
@@ -1523,14 +1523,14 @@ int discModeProc() {
                                          omics2ChunkStrideAllc, 64);
 
     // assign counts of bins of each gradient significant levels conjunction with each distance levels
-    uint64_t* st_W = new uint64_t[threadMaxN * (st_ll + 1) * (distLvNum + 1)]();
-    vector<vector<uint64_t> > st_Wcdf(distLvNum + 1, vector<uint64_t>(st_ll, 0));
+    int64_t* st_W = new int64_t[threadMaxN * (st_ll + 1) * (distLvNum + 1)]();
+    vector<vector<int64_t> > st_Wcdf(distLvNum + 1, vector<int64_t>(st_ll, 0));
 
     // assign the number of test of each distance levels
-    vector<uint64_t> testCnt(distLvNum + 1, 0);
+    vector<int64_t> testCnt(distLvNum + 1, 0);
 
     // assign the number of significant result
-    uint64_t rltN = 0;
+    int64_t rltN = 0;
 
 #   pragma omp parallel \
     num_threads(threadMaxN) default(shared)
@@ -1541,7 +1541,7 @@ int discModeProc() {
 
         // assign significant result on each thread
         vector<fitRlt> rltArr; 
-        rltArr.reserve((uint64_t)omics1Num * omics2Num * globalP / nthreads);
+        rltArr.reserve((int64_t)omics1Num * omics2Num * globalP / nthreads);
 
         // set offset of Inter-variable ST
         uint32_t testCntOffset = tid * (distLvNum + 1);
@@ -1871,7 +1871,7 @@ int discModeProc() {
                         }
 
                         int8_t levelCurr = -1;
-                        uint64_t lociDist = max(abs(omics1BPST[omics1VarGlobal] - omics2BPEN[omics2VarGlobal]),
+                        int64_t lociDist = max(abs(omics1BPST[omics1VarGlobal] - omics2BPEN[omics2VarGlobal]),
                                                 abs(omics2BPST[omics2VarGlobal] - omics1BPEN[omics1VarGlobal]));
                         if (distLvNum >= 1 &&
                             omics1CHR[omics1VarGlobal] == omics2CHR[omics2VarGlobal] && 
@@ -2031,7 +2031,7 @@ int discModeProc() {
     // input level and P
     ifstream inputBinFile(outputFileName + ".bin", ios::in | ios::binary);
     inputBinFile.seekg(0); // set get point of inputBinFile into header
-    for (uint64_t i = 0; i < rltN; i++) {
+    for (int64_t i = 0; i < rltN; i++) {
         fitRlt rltTmp;
         if (!inputBinFile.read((char*)&rltTmp, sizeof(fitRlt))) {
             oss << "Error: Output file is incomplete .\n"; dualOutput(oss, outputLogFile, std::cout);
@@ -2045,9 +2045,13 @@ int discModeProc() {
     // calc Q-value
     if (rltN > 0) {
         sort(rltArrP.begin(), rltArrP.end());
+
         int64_t rltHead = 0, rltTail;
         for (uint8_t l = 0; l < 1 + distLvNum; l++) {
-            for (rltTail = rltHead; rltArrP[rltTail].level == l + 1; rltTail++);
+            rltTail = rltHead;
+            while ((rltTail < rltN) && (rltArrP[rltTail].level == l + 1)) {
+                rltTail++;
+            }
             for (int64_t i = rltHead; i < rltTail; i++) {
                 // use pq to storage q value
                 rltArrP[i].pq = rltArrP[i].pq * testCnt[l] / (i - rltHead + 1);
@@ -2067,13 +2071,13 @@ int discModeProc() {
     // translate rank to order of rltArrP
     // decoupling .p and .rank element of rltArrP
     vector<uint8_t> rltArrSign(rltN, 0);
-    for (uint64_t i = 0; i < rltN; i++) {
+    for (int64_t i = 0; i < rltN; i++) {
         if (rltArrSign[i] == 0) {
-            uint64_t k = i;
-            uint64_t j = rltArrP[i].rank;
+            int64_t k = i;
+            int64_t j = rltArrP[i].rank;
             while (rltArrSign[j] == 0) {
                 rltArrSign[j] = 1;
-                uint64_t r_1 = rltArrP[j].rank;
+                int64_t r_1 = rltArrP[j].rank;
                 rltArrP[j].rank = k;
                 k = j;
                 j = r_1;
@@ -2093,7 +2097,7 @@ int discModeProc() {
                    << "CHR2\t" << "BPST2\t" << "BPED2\t" << "distance_level\t" 
                    << "NMISS\t" << "BETA\t" << "SE\t" << "T\t" 
                    << "P-value\t" << "Q-value\n";
-        for (uint64_t i = 0; i < rltN; i++) {
+        for (int64_t i = 0; i < rltN; i++) {
             fitRlt rltTmp;
             inputBinFile.read((char*)&rltTmp, sizeof(fitRlt));
 

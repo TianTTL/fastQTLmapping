@@ -25,7 +25,7 @@ struct fitRlt {
 struct fitRltPart {
     uint8_t level;
     double pq;
-    uint64_t rank;
+    int64_t rank;
 };
 
 // global variables
