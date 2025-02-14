@@ -29,7 +29,7 @@ struct fitRltPart {
 };
 
 // global variables
-string VERSION="0.9.8";
+string VERSION="0.9.9";
 string omics1FileName, omics2FileName, outputFileName, rplFileName = "NA";
 string covarFileName;
 bool bfileFlag1 = false, bfileFlag2 = false;

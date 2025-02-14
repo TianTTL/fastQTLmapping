@@ -4,17 +4,13 @@ FastQTLmapping is a computationally efficient, exact, and generic solver for exh
 
 ## Current Version
 
-0.9.8
-
-
+0.9.9
 
 ## Counting Mode
 
 In counting mode, fastQTLmapping will count the number of loci-pairs in each distance level and calculate the significant threshold that controls FWER using bonferroni method. The distance level threshold and FWER(Family-Wise Error Rate) are user specified.
 
 Counting mode is computationally fast and is usually performed before discovery mode.  This process can help users evaluate computational scale and estimate significance thresholds for studies.
-
-
 
 ## Discovery Mode
 
@@ -26,53 +22,29 @@ $y=\alpha + \beta x + \gamma C + \epsilon, \epsilon \sim i.i.d. N(0, \sigma ^2)$
 
 FastQTLmapping accepts input files in text format and in Plink binary format. The output file is in text format and contains test statistics of regression test across all loci-pairs, with the ability to control the volume of the output at preset significance thresholds.
 
-
-
 ## Operating Environment
 
 Software environment: x64 processor-based, 64-bit operating system, Linux v3.10.0 and above.
 
-Library:
+Programming language: C++
 
-GLIBC( >= 2.17)
+Library: MKL (>= 2019.0)
 
-GLIBCXX( >=  3.4.19)
+              GSL (>= v2.6)
 
-CXXABI( >= 1.3.7)
+              OpenMP
 
+## Installation
 
+1. Download the source code and unzip it.
 
-## Installation Methods
+2. Enter the source code directory.
 
-This repository provides two methods for installing the software: using a precompiled executable or building it from source using a Makefile.
+3. Edit `Makefile` to specify the GSL and MKL paths.
 
-### 1. Using the Precompiled Executable
-
-1. Make the file executable:
-
-    ```bash
-    chmod +x fastQTLmapping
-    ```
-3. Run the program:
-   ```bash
-   ./fastQTLmapping
-   ```
-
-### 2. Building from Source with Makefile
-
-1. Install MKL (>= 2019.0) and GSL (>= v2.6).
-
-2. Download the source code and unzip it.
-
-3. Enter the source code directory.
-
-4. Edit `Makefile` to specify the GSL and MKL paths.
-
-5. Type `make` to install fastQTLmapping.
-
-   After successful installation, an executable file `fastQTLmapping` will be generated in the current path.
-
+4. Type `make` to install fastQTLmapping.
    
+   After successful installation, an executable file `fastQTLmapping` will be generated in the current path.
 
 ## Running fastQTLmapping
 
@@ -128,8 +100,6 @@ fastQTLmapping --omics1 <omics1FileName> [bfile] --omics2 <omics2FileName>
 | `[--omics1norm zscore\|rank]` | Set the normalization method for the first omics data. `zscore` is Z-value normalization. `rank` is rank-base normalization. If not set, no normalization will be done. The default is no normalization. |
 | `[--omics2norm zscore\|rank]` | Set the normalization method for the second omics data. `zscore` is Z-value normalization. `rank` is rank-base normalization. If not set, no normalization will be done. The default is no normalization. |
 
-
-
 ## Input
 
 ### Omics Data
@@ -156,8 +126,6 @@ Each line of the `outputFileName` file records the statistics of regression anal
 
 The output file retains `outPcs` significant digits.
 
-
-
 ## Example
 
 ```bash
@@ -178,11 +146,9 @@ fastQTLmapping \
  discovery \
  --cov testdata/test.covar.data --categ 1 \
  --na NA --MR 0.1 \
- --dl 1000000 2000000 --dlp 1e-4 1e-6 -p 1e-8 \
+ --dl 1000000 2000000 --dlp 1 0.9 -p 0.8 \
  --omics1norm zscore --omics2norm rank
 ```
-
-
 
 ## List of Features
 
@@ -224,5 +190,9 @@ FastQTLmapping calculates the q-values for all of p-values using FDR method([Sto
 
 In the preprocessing stage, fastQTLmapping will estimate memory requirements of current job and print it on the screen. Noted that when the result is massively inflated, the actual memory consumption will be larger than the estimated value.
 
+## Possible Upcoming Features
 
+* Replication mode
+* Permutation schedule for each molecular loci.
+* Estimating independent test number by MLE ([Galwey N W, 2009](https://pubmed.ncbi.nlm.nih.gov/19217024/)).
 
