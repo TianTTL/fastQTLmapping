@@ -345,14 +345,23 @@ void input2DfloatParse(std::ifstream& inputFile,
     }
 }
 
-void calcCovarSize(string covarFileName, string NASign, uint32_t sampleSize, uint32_t& covarNum, 
+void calcCovarSize(string covarFileName, string NASign, uint32_t &sampleSize, uint32_t& covarNum, 
                    vector<bool>& sampleFltSign, uint32_t& covarNANum, 
                    vector<uint32_t>& categFlag, uint32_t& covarCategNum) {
-    uint32_t i, rowsCount = 0;
+    uint32_t i, rowsCount = 0, colsCount = 0;
     covarCategNum = 0;
     ifstream inputFile;
     string s, oneItem;
     vector<uint32_t> categFlagRef;
+
+    inputFile.open(covarFileName);
+    getline(inputFile, s);
+    istringstream is(s);
+    while (is >> oneItem) {
+        colsCount++;
+    }
+    sampleSize = colsCount - 1; // first 1 columns are cov info
+    inputFile.close();
 
     inputFile.open(covarFileName);
     while (getline(inputFile, s)){
@@ -1285,15 +1294,25 @@ int discModeProc() {
         calcInputSize(omics1FileName, sampleSize, omics1Num);
     }
     if (bfileFlag2) { // input plink bfile as second omics
-        calcBfileSize(omics2FileName, sampleSize, omics2Num);
+        calcBfileSize(omics2FileName, sampleSizeAlt, omics2Num);
     } else {
-        calcInputSize(omics2FileName, sampleSize, omics2Num);
+        calcInputSize(omics2FileName, sampleSizeAlt, omics2Num);
+    }
+    if (sampleSize != sampleSizeAlt) {
+        oss << "Error: Sample size of omics 1 and omics 2 are not equal.\n"; 
+        dualOutput(oss, outputLogFile, std::cout);
+        return 1;
     }
     vector<bool> sampleFltSign(sampleSize, false);
     uint32_t covarNANum = 0;
     uint32_t covarCategNum = 0;
     if (!covarFileName.empty()) {
-        calcCovarSize(covarFileName, NASign, sampleSize, covarNum, sampleFltSign, covarNANum, categFlag, covarCategNum);
+        calcCovarSize(covarFileName, NASign, sampleSizeAlt, covarNum, sampleFltSign, covarNANum, categFlag, covarCategNum);
+    }
+    if (sampleSize != sampleSizeAlt) {
+        oss << "Error: Sample size of omics data and covariates data are not equal.\n"; 
+        dualOutput(oss, outputLogFile, std::cout);
+        return 1;
     }
     sampleSize -= covarNANum;
 

@@ -29,7 +29,7 @@ struct fitRltPart {
 };
 
 // global variables
-string VERSION="0.9.9";
+string VERSION="0.9.9_alpha";
 string omics1FileName, omics2FileName, outputFileName, rplFileName = "NA";
 string covarFileName;
 bool bfileFlag1 = false, bfileFlag2 = false;
@@ -76,7 +76,7 @@ void input2DfloatParse(std::ifstream& inputFile,
                        uint32_t threadMaxN, 
                        vector<bool>& sampleFltSign, uint32_t sampleFltNum, 
                        vector<vector<uint32_t> >& NASignMark, string NASign);
-void calcCovarSize(string covarFileName, string NASign, uint32_t sampleSize, uint32_t& covarNum, 
+void calcCovarSize(string covarFileName, string NASign, uint32_t &sampleSize, uint32_t& covarNum, 
                    vector<bool>& sampleFltSign, uint32_t& covarNANum, 
                    vector<uint32_t>& categFlag, uint32_t& covarCategNum);
 float* inputCovar(string fileName, 
