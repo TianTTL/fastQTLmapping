@@ -106,7 +106,7 @@ fastQTLmapping --omics1 <omics1FileName> [bfile] --omics2 <omics2FileName>
 
 FastQTLmapping accepts two widely used data formats.
 
-For quantitative omics data, input file is a space- or tab-delimited matrix without table headers. Each row represents a molecular loci. The first four columns record the loci ID, the chromosome, the start position and the end position, and subsequent columns record the quantitative molecular-level in each individuals.  Missing values need to be marked by a unique string that specified by `NASign`.
+For quantitative omics data, input file is a space- or tab-delimited matrix without table headers. Each row represents a molecular loci. The first four columns record the loci ID, the chromosome, the start position and the end position, and subsequent columns record the quantitative molecular-level in each individuals.  Missing values need to be marked by a unique string that specified by `NASign`. For example, a sample quantitative omics data file might look like [this](testdata/dataset1.omics1.data).
 
 For genomics data in [Plink Binary File](http://www.cog-genomics.org/plink/1.9/formats#bed) format, use `bfile` flag to make fastQTLmapping input binary file set: `omics1FileName.bed`+`omics1FileName.bim`+`omics1FileName.fam`.
 
@@ -114,9 +114,10 @@ For genomics data in [Plink Binary File](http://www.cog-genomics.org/plink/1.9/f
 
 It is common to include covariates in an eQTL model to account for such effects as population stratiﬁcation, gender, age, white blood count and other clinical variables.
 
-Covariate data is a space- or tab-delimited matrix with no table headers recorded in `covarFileName` file. Each column represents a sample; each row represents a covariate. User can specify which rows of covariates are categorical variables by setting `--categ`. Numeric covariates can be represented as numbers, while categorical covariates can be represented  as numbers or strings. 
+Covariate data is a space- or tab-delimited matrix with no table headers recorded in `covarFileName` file. Each column represents a sample; each row represents a covariate. User can specify which rows of covariates are categorical variables by setting `--categ`. Numeric covariates can be represented as numbers, while categorical covariates can be represented  as numbers or strings. For an example of a covariate file containing 1 categorical covariate and 9 numerical covariates, please refer to [this sample](testdata/dataset1.covar.data).
 
-The individual order of the omics data and the covariate data must be consistent. Missing values need to be marked by a unique string. 
+
+**The individual order of the omics data and the covariate data must be consistent.** Missing values need to be marked by a unique string. 
 
 ## Output
 
@@ -126,28 +127,52 @@ Each line of the `outputFileName` file records the statistics of regression anal
 
 The output file retains `outPcs` significant digits.
 
-## Example
+## Example 1
 
 ```bash
 # counting mode
 fastQTLmapping \
- --omics1 testdata/test.omics1.data \
- --omics2 testdata/test.omics2.data \
- --out testdata/test.rlt \
+ --omics1 testdata/dataset1.omics1.data \
+ --omics2 testdata/dataset1.omics2.data \
+ --out testdata/dataset1.rlt \
  count \
  --dl 1000000 2000000 --FWER 0.01
 
 # discovery mode
 fastQTLmapping \
- --omics1 testdata/test.omics1.data \
- --omics2 testdata/test.omics2.data \
- --out testdata/test.rlt \
+ --omics1 testdata/dataset1.omics1.data \
+ --omics2 testdata/dataset1.omics2.data \
+ --out testdata/dataset1.rlt \
  --threads 1 \
  discovery \
- --cov testdata/test.covar.data --categ 1 \
+ --cov testdata/dataset1.covar.data --categ 1 \
  --na NA --MR 0.1 \
  --dl 1000000 2000000 --dlp 1 0.9 -p 0.8 \
  --omics1norm zscore --omics2norm rank
+```
+
+## Example 2
+
+```bash
+# counting mode
+fastQTLmapping \
+ --omics1 testdata/dataset2.omics1.data \
+ --omics2 testdata/dataset2.omics2.data \
+ --out testdata/dataset2.rlt \
+ count \
+ --dl 10000 --FWER 0.05
+
+# discovery mode
+fastQTLmapping \
+ --omics1 testdata/dataset2.omics1.data \
+ --omics2 testdata/dataset2.omics2.data \
+ --out testdata/dataset2.rlt \
+ --threads 4 \
+ discovery \
+ --cov testdata/dataset2.covar.data \
+ --na NA --MR 0.1 \
+ --dl 10000 --dlp 1e-4 -p 1e-6 \
+ --omics2norm zscore
 ```
 
 ## List of Features
